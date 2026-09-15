@@ -152,6 +152,22 @@ class DetectionTest {
     }
 
     @Test
+    fun `the story viewer is recognised by its own family of ids`() {
+        listOf("reel_viewer_root", "story_viewer_container", "reel_reply_text_field").forEach { id ->
+            assertEquals(
+                "$id should be the story viewer",
+                FeedSurface.STORIES,
+                classifier.classify(instagram(id), emptySet()).surface,
+            )
+        }
+        // The reels player uses clips_*; the two families never overlap.
+        assertEquals(
+            FeedSurface.SHORT_VIDEO_FEED,
+            classifier.classify(instagram("clips_viewer_root", "tab_bar"), emptySet()).surface,
+        )
+    }
+
+    @Test
     fun `stories are not mistaken for reels`() {
         val result = classifier.classify(instagram("reel_viewer_root", "reel_viewer_texture_view"), emptySet())
         assertEquals(FeedSurface.STORIES, result.surface)

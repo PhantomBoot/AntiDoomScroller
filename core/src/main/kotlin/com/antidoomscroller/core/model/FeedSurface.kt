@@ -50,10 +50,17 @@ enum class FeedSurface(val id: String, val label: String, val description: Strin
     ;
 
     /**
-     * Whether this surface is a short-video feed, and therefore the only kind of screen the app
-     * is ever allowed to take away. Messages, stories, posts and long-form video are recognised
-     * so the app knows where the user is - never so it can block them.
+     * Whether the app is allowed to take this screen away at all.
+     *
+     * The short-video feeds, plus stories, which are the one non-video surface with a switch of
+     * its own. Everything else - messages, posts, search, profiles, long-form video - is
+     * recognised only so the guard knows where the user is, and cannot be blocked whatever the
+     * settings say.
      */
+    val isBlockable: Boolean
+        get() = isShortVideo || this == STORIES
+
+    /** Whether this surface is one of the short-video feeds. */
     val isShortVideo: Boolean
         get() = this == SHORT_VIDEO_FEED ||
             this == SHORT_VIDEO_IN_DM ||

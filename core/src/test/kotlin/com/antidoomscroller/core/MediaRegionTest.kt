@@ -126,6 +126,46 @@ class MediaRegionTest {
     }
 
     @Test
+    fun `the cover goes on the reel, not the row of story circles above it`() {
+        // The screen from the bug report: a stories tray across the top of the timeline with a
+        // reel playing below it. Instagram calls that tray "reels_tray" - its naming predates
+        // Reels - so an id-led choice put the black box on the stories and left the reel playing.
+        val region = requireNotNull(
+            MediaRegionResolver.resolve(
+                snapshot(
+                    mapOf(
+                        "reels_tray_container" to ScreenRect(0, 220, 1080, 480),
+                        "media_container" to ScreenRect(0, 220, 1080, 480),
+                        "feed_recycler_view" to ScreenRect(0, 220, 1080, 2250),
+                        "class:textureview" to ScreenRect(0, 520, 1080, 2000),
+                        "tab_bar" to ScreenRect(0, 2250, 1080, 2400),
+                    ),
+                ),
+                instagram,
+                screen,
+            ),
+        )
+
+        assertEquals(ScreenRect(0, 520, 1080, 2000), region)
+        assertTrue("the stories tray must stay visible", region.top > 480)
+    }
+
+    @Test
+    fun `a named container still wins when the video is inside it`() {
+        val region = MediaRegionResolver.resolve(
+            snapshot(
+                mapOf(
+                    "clips_video_container" to ScreenRect(0, 300, 1080, 1900),
+                    "class:textureview" to ScreenRect(20, 320, 1060, 1880),
+                ),
+            ),
+            instagram,
+            screen,
+        )
+        assertEquals(ScreenRect(0, 300, 1080, 1900), region)
+    }
+
+    @Test
     fun `thumbnails and buttons are never mistaken for the video`() {
         val region = MediaRegionResolver.resolve(
             snapshot(mapOf("clips_video_container" to ScreenRect(40, 40, 200, 200))),

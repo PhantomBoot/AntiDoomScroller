@@ -172,7 +172,9 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
             surface = session.onClassified(detected.surface, profile.dmAllowanceEndsOnSwipe),
         )
 
-        updateHeartbeat(classification.surface.isShortVideo)
+        // Stories count here too: backing out of one needs the screen re-examined on a timer,
+        // and a story viewer goes quiet once it is playing.
+        updateHeartbeat(classification.surface.isBlockable)
 
         // Projected to this instant: the stored progress is only written occasionally, so reading
         // it directly would leave a spent allowance looking like it was still running.

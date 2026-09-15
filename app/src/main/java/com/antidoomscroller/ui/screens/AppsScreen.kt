@@ -89,8 +89,8 @@ fun AppDetailScreen(packageName: String, onBack: () -> Unit) {
 
             SectionCard(
                 title = "Which feeds to remove",
-                subtitle = "Each switch is about short video only. Nothing here can hide your " +
-                    "messages, your stories or ordinary posts.",
+                subtitle = "Short-video feeds, plus stories if you want them gone too. Nothing " +
+                    "here can hide your messages, your posts or your search.",
             ) {
                 DefaultProfiles.configurableSurfaces(packageName).forEach { surface ->
                     SwitchRow(

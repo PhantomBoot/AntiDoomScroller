@@ -30,7 +30,10 @@ object DefaultSignatures {
             "clips_viewer_media_container",
             "clips_netego",
             "netego_carousel",
-            "reels_tray",
+            // Deliberately no "reel*" ids here. Instagram's naming predates Reels: reel_viewer is
+            // the *story* viewer and reels_tray is the row of story circles at the top of the
+            // feed. Listing it put the cover on the stories tray while the reel below played on.
+            // Reels are clips_*, and only clips_*.
             "media_container",
             "video_container",
             // Matched by widget class rather than id: whatever the container is called this
@@ -40,7 +43,6 @@ object DefaultSignatures {
             "class:surfaceview",
             "class:videoview",
             "clips_viewer",
-            "reels_viewer",
         ),
         bottomChromeViewIds = listOf("tab_bar"),
         topChromeViewIds = listOf("action_bar_container", "action_bar"),
@@ -121,7 +123,7 @@ object DefaultSignatures {
             SurfaceSignature(
                 surface = FeedSurface.SHORT_VIDEO_IN_HOME.id,
                 weight = 110,
-                anyViewId = listOf("clips_netego", "reels_tray", "clips_unit", "netego_carousel"),
+                anyViewId = listOf("clips_netego", "clips_unit", "netego_carousel"),
                 anyContentDescription = listOf("reel by", "reel video", "audio by"),
                 noneViewId = listOf(
                     "profile_header",
@@ -137,7 +139,16 @@ object DefaultSignatures {
             SurfaceSignature(
                 surface = FeedSurface.STORIES.id,
                 weight = 100,
-                anyViewId = listOf("reel_viewer_root", "reel_viewer_texture_view", "story_viewer", "reel_viewer_media"),
+                // Instagram still calls the story viewer "reel_viewer" internally, from the days
+                // before Reels existed. It does not overlap with clips_*, which is the reels
+                // player, so the two cannot be confused.
+                anyViewId = listOf(
+                    "reel_viewer",
+                    "story_viewer",
+                    "stories_viewer",
+                    "reel_reply",
+                    "story_reply",
+                ),
                 forbidContext = listOf(ContextTag.DM),
             ),
             SurfaceSignature(

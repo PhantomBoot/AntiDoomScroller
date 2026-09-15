@@ -41,11 +41,12 @@ class PolicyResolver {
             return GuardDecision.Allow(AllowReason.SURFACE_UNRECOGNISED, FeedSurface.UNKNOWN)
         }
 
-        // The app only ever removes short-video feeds. Messages, stories, posts, search and
-        // long-form video are recognised so the guard knows where a reel was opened from, and
-        // are structurally incapable of being blocked - no setting can change this.
-        if (!classification.surface.isShortVideo) {
-            return GuardDecision.Allow(AllowReason.NOT_SHORT_VIDEO, classification.surface)
+        // Only the short-video feeds and stories can be taken away, and stories only when that
+        // switch is on. Messages, posts, search, profiles and long-form video are recognised so
+        // the guard knows where the user is, and are structurally incapable of being blocked - no
+        // setting can change that.
+        if (!classification.surface.isBlockable) {
+            return GuardDecision.Allow(AllowReason.NOT_BLOCKABLE, classification.surface)
         }
 
         if (scrollPassRunning) {
@@ -84,8 +85,13 @@ class PolicyResolver {
          * instead: backing out of it would mean backing out of the home feed, which is not what
          * was asked for.
          */
-        fun styleFor(profile: AppProfile, surface: FeedSurface): BlockStyle =
-            if (surface == FeedSurface.SHORT_VIDEO_IN_HOME) BlockStyle.COVER else profile.blockStyle
+        fun styleFor(profile: AppProfile, surface: FeedSurface): BlockStyle = when (surface) {
+            // Covering a story would leave it playing and advancing behind the panel, so the
+            // only way to actually stop one is to step back out of the viewer.
+            FeedSurface.STORIES -> BlockStyle.EXIT
+            FeedSurface.SHORT_VIDEO_IN_HOME -> BlockStyle.COVER
+            else -> profile.blockStyle
+        }
     }
 }
 

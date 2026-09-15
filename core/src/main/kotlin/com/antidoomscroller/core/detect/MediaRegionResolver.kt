@@ -23,7 +23,7 @@ object MediaRegionResolver {
     fun resolve(snapshot: ScreenSnapshot, app: AppSignature?, screen: ScreenRect): ScreenRect? {
         if (app == null || app.mediaViewIds.isEmpty() || screen.isEmpty) return null
 
-        val best = snapshot.bounds.entries
+        val candidates = snapshot.bounds.entries
             .mapNotNull { (id, rect) ->
                 val priority = app.mediaViewIds.indexOfFirst { id.contains(it) }
                 if (priority < 0) return@mapNotNull null
@@ -32,8 +32,23 @@ object MediaRegionResolver {
                 if (visible.area < (screen.area * MIN_AREA_FRACTION).toLong()) return@mapNotNull null
                 Candidate(priority, visible)
             }
+
+        // A box with nothing playing inside it is not the video, whatever its id suggests. This
+        // is what keeps a cover off furniture that happens to be named like a feed - a row of
+        // story circles at the top of a timeline, say - without having to know every id an app
+        // might rename.
+        val playing = videoSurfaces(snapshot, screen)
+        val eligible = if (playing.isEmpty()) {
+            candidates
+        } else {
+            candidates.filter { candidate -> playing.any { it.overlaps(candidate.rect) } }
+        }
+
+        val best = eligible
             // Most specific id wins; between equals, the tighter box wins.
             .minWithOrNull(compareBy({ it.priority }, { it.rect.area }))
+        // Nothing named matched, but something is plainly playing: cover that.
+            ?: playing.maxByOrNull { it.area }?.let { Candidate(Int.MAX_VALUE, it) }
             ?: return null
 
         val trimmed = trimChrome(best.rect, snapshot, app, screen)
@@ -89,6 +104,18 @@ object MediaRegionResolver {
             .map { it.value.intersect(screen) }
             .filterNot { it.isEmpty }
     }
+
+    /**
+     * Where a video is actually playing, as recorded by the collector from widget class and
+     * geometry rather than from any app-specific id.
+     */
+    private fun videoSurfaces(snapshot: ScreenSnapshot, screen: ScreenRect): List<ScreenRect> =
+        snapshot.bounds.entries
+            .filter { (key, _) -> VIDEO_KEY_PREFIXES.any { key.startsWith(it) } }
+            .map { it.value.intersect(screen) }
+            .filterNot { it.isEmpty }
+
+    private val VIDEO_KEY_PREFIXES = listOf("class:", "video:")
 
     private data class Candidate(val priority: Int, val rect: ScreenRect)
 }

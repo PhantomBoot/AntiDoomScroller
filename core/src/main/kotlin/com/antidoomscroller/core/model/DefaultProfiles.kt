@@ -125,6 +125,9 @@ object DefaultProfiles {
             FeedSurface.SHORT_VIDEO_IN_HOME,
             FeedSurface.SHORT_VIDEO_IN_EXPLORE,
             FeedSurface.SHORT_VIDEO_IN_DM,
+            // Off unless asked for: stories are not short video, and plenty of people want the
+            // reels gone and the stories kept.
+            FeedSurface.STORIES,
         )
 
         SupportedApps.YOUTUBE -> listOf(

@@ -53,36 +53,58 @@ class PolicyTest {
     }
 
     @Test
-    fun `everything that is not short video is untouchable, even if a rule says otherwise`() {
+    fun `the feed, explore and search are untouchable even if a rule says otherwise`() {
         val settings = GuardSettings().let { base ->
             var profile = base.profileFor(SupportedApps.INSTAGRAM)!!
-            listOf(FeedSurface.EXPLORE, FeedSurface.HOME_FEED, FeedSurface.STORIES).forEach {
+            listOf(FeedSurface.EXPLORE, FeedSurface.HOME_FEED).forEach {
                 profile = profile.withAction(it, RuleAction.BLOCK)
             }
             base.withProfile(profile)
         }
 
-        listOf(FeedSurface.EXPLORE, FeedSurface.HOME_FEED, FeedSurface.STORIES).forEach { surface ->
+        listOf(FeedSurface.EXPLORE, FeedSurface.HOME_FEED).forEach { surface ->
             val decision = decide(settings, surface)
             assertTrue("$surface must never be blocked", decision is GuardDecision.Allow)
-            assertEquals(AllowReason.NOT_SHORT_VIDEO, (decision as GuardDecision.Allow).reason)
+            assertEquals(AllowReason.NOT_BLOCKABLE, (decision as GuardDecision.Allow).reason)
         }
     }
 
     @Test
-    fun `only the four short video surfaces are ever blockable`() {
-        val blockable = FeedSurface.entries.filter { it.isShortVideo }
+    fun `stories are shown unless the switch is turned on`() {
+        assertEquals(
+            AllowReason.SURFACE_ALLOWED,
+            (decide(GuardSettings(), FeedSurface.STORIES) as GuardDecision.Allow).reason,
+        )
+
+        val hidden = GuardSettings().let { base ->
+            base.withProfile(
+                base.profileFor(SupportedApps.INSTAGRAM)!!
+                    .withAction(FeedSurface.STORIES, RuleAction.BLOCK),
+            )
+        }
+        val decision = decide(hidden, FeedSurface.STORIES)
+        assertTrue(decision is GuardDecision.Block)
+        // Covering a story leaves it playing and advancing underneath; stepping out stops it.
+        assertEquals(BlockStyle.EXIT, (decision as GuardDecision.Block).style)
+    }
+
+    @Test
+    fun `only short video and stories can ever be blocked`() {
         assertEquals(
             listOf(
                 FeedSurface.SHORT_VIDEO_FEED,
                 FeedSurface.SHORT_VIDEO_IN_DM,
                 FeedSurface.SHORT_VIDEO_IN_HOME,
                 FeedSurface.SHORT_VIDEO_IN_EXPLORE,
+                FeedSurface.STORIES,
             ),
-            blockable,
+            FeedSurface.entries.filter { it.isBlockable },
         )
+        listOf(FeedSurface.HOME_FEED, FeedSurface.EXPLORE, FeedSurface.UNKNOWN).forEach {
+            assertFalse("$it must not be blockable", it.isBlockable)
+        }
         assertTrue(DefaultProfiles.all().all { profile ->
-            DefaultProfiles.configurableSurfaces(profile.packageName).all { it.isShortVideo }
+            DefaultProfiles.configurableSurfaces(profile.packageName).all { it.isBlockable }
         })
     }
 

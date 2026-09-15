@@ -14,8 +14,8 @@ enum class AllowReason {
     SURFACE_ALLOWED,
     SURFACE_UNRECOGNISED,
 
-    /** The screen is not a short-video feed, so it is not something this app touches. */
-    NOT_SHORT_VIDEO,
+    /** The screen is not one this app is ever allowed to take away. */
+    NOT_BLOCKABLE,
 }
 
 sealed interface GuardDecision {
