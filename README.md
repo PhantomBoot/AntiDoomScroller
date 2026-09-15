@@ -54,6 +54,7 @@ switch it on.
 | A reel inside the home feed | That one unit is covered; the posts above and below stay usable |
 | A reel opened from Explore | Removed |
 | **A reel a friend sent you in a DM** | **Allowed** by default — one switch changes it |
+| Swiping onward from that reel | Treated as the feed again (switchable — see below) |
 | YouTube Shorts player and shelf | Removed |
 | Direct messages, stories, posts, comments, search, profiles | Never touched |
 | Long-form YouTube videos, subscriptions, playlists | Never touched |
@@ -75,6 +76,15 @@ Each app has its own style, because the feeds are shaped differently:
   and leaves the app.
 
 You can swap the style per app.
+
+### What "allow reels in DMs" covers
+
+The reel a friend sent plays for as long as you want to watch it. Swiping to the *next* one is the
+feed choosing for you again, so by default that falls back under the normal rule. Turn off **Only
+the reel they sent** in the app's settings if you would rather the whole visit stay allowed.
+
+The distinction is drawn on you actually moving to another video — never on a timer, so nothing
+changes underneath you mid-watch.
 
 ### The rest of the feed guard
 

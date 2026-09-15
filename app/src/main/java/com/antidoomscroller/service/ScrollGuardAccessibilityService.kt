@@ -3,6 +3,8 @@ package com.antidoomscroller.service
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Intent
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
 import com.antidoomscroller.AppContainer
@@ -13,6 +15,7 @@ import com.antidoomscroller.core.detect.DefaultSignatures
 import com.antidoomscroller.core.detect.MediaRegionResolver
 import com.antidoomscroller.core.detect.ScreenRect
 import com.antidoomscroller.core.detect.ScreenSnapshot
+import com.antidoomscroller.core.detect.ShortVideoSession
 import com.antidoomscroller.core.detect.SurfaceClassifier
 import com.antidoomscroller.core.lock.LockPhase
 import com.antidoomscroller.core.messages.MessageBook
@@ -55,6 +58,8 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
     private val resolver = PolicyResolver()
     private val scrollDetector = ScrollDetector()
     private val messageBook = MessageBook()
+    private val session = ShortVideoSession()
+    private val handler = Handler(Looper.getMainLooper())
 
     private lateinit var container: AppContainer
     private lateinit var overlay: BlockOverlay
@@ -66,6 +71,8 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
     private var backOff = BackOffBudget(attempts = 3, windowMs = 15_000)
     private var lastEvaluationMs = 0L
     private var lastBackMs = 0L
+    private var heartbeatScheduled = false
+    private var lastPackage: String? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -98,7 +105,7 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
         if (packageName == this.packageName) return
 
         when (event.eventType) {
-            AccessibilityEvent.TYPE_VIEW_SCROLLED -> handleScroll(packageName)
+            AccessibilityEvent.TYPE_VIEW_SCROLLED -> handleScroll(packageName, event)
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> evaluate(packageName, force = true)
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> evaluate(packageName, force = false)
             else -> Unit
@@ -108,6 +115,7 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     override fun onUnbind(intent: Intent?): Boolean {
+        handler.removeCallbacks(heartbeatRunnable)
         overlay.dismiss()
         serviceScope.cancel()
         return super.onUnbind(intent)
@@ -134,6 +142,10 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
         val root = rootInActiveWindow ?: return
         val snapshot = SnapshotCollector.collect(root, packageName, now, screenBounds())
 
+        if (packageName != lastPackage) {
+            lastPackage = packageName
+            session.reset()
+        }
         trail.onPackageChanged(packageName)
         val screenTags = classifier.contextTagsFor(snapshot)
         if (screenTags.isNotEmpty()) {
@@ -142,7 +154,15 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
             trail.recordAll(screenTags, now)
         }
 
-        val classification = classifier.classify(snapshot, trail.activeTags(now))
+        val detected = classifier.classify(snapshot, trail.activeTags(now))
+        // Where the visit started outlives the navigation context that proved it, so a reel a
+        // friend sent does not turn into the feed partway through watching it.
+        val classification = detected.copy(
+            surface = session.onClassified(detected.surface, profile.dmAllowanceEndsOnSwipe),
+        )
+
+        updateHeartbeat(classification.surface.isShortVideo)
+
         when (val decision = resolver.decide(settings, packageName, classification, LocalDateTime.now())) {
             is GuardDecision.Block -> enforceBlock(decision, profile, snapshot, now)
             is GuardDecision.Allow -> {
@@ -226,7 +246,13 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
         performGlobalAction(GLOBAL_ACTION_BACK)
     }
 
-    private fun handleScroll(packageName: String) {
+    private fun handleScroll(packageName: String, event: AccessibilityEvent) {
+        // Moving to another video changes what the screen is, so look again immediately rather
+        // than waiting for the next stray event from a player that is just playing.
+        if (session.onScroll(event.fromIndex)) {
+            evaluate(packageName, force = true)
+        }
+
         val profile = settings.profileFor(packageName) ?: return
         if (!settings.masterEnabled || !profile.enabled) return
 
@@ -251,6 +277,40 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
         overlay.dismiss()
         scrollDetector.onLeaveApp()
         backOff.reset()
+        session.reset()
+        updateHeartbeat(active = false)
+    }
+
+    /**
+     * Re-examines the screen while a short-video player is open.
+     *
+     * A playing video changes nothing the accessibility framework reports, so events dry up and a
+     * screen that becomes blockable can sit unnoticed for many seconds. This runs only inside a
+     * player, and stops the moment the user is anywhere else.
+     */
+    private fun updateHeartbeat(active: Boolean) {
+        if (!active) {
+            heartbeatScheduled = false
+            handler.removeCallbacks(heartbeatRunnable)
+            return
+        }
+        if (heartbeatScheduled) return
+        heartbeatScheduled = true
+        handler.postDelayed(heartbeatRunnable, HEARTBEAT_INTERVAL_MS)
+    }
+
+    private val heartbeatRunnable = Runnable {
+        heartbeatScheduled = false
+        val current = runCatching { rootInActiveWindow?.packageName?.toString() }.getOrNull()
+        if (current == null || settings.profileFor(current) == null) {
+            // The user left for an app this service does not watch, and so hears nothing about.
+            leaveGuardedApp()
+            return@Runnable
+        }
+        evaluate(current, force = true)
+        // evaluate() re-arms this on every path that reaches a decision; a frame where the window
+        // could not be read reaches none of them, and must not silently end the watch.
+        if (!heartbeatScheduled && session.isActive) updateHeartbeat(active = true)
     }
 
     // -- adult filter, browser layer -----------------------------------------
@@ -310,6 +370,16 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
 
     private companion object {
         const val MIN_EVALUATION_INTERVAL_MS = 250L
+
+        /**
+         * How long a navigation breadcrumb stays fresh.
+         *
+         * This only has to survive the handful of frames between tapping a reel and the player
+         * appearing; how long the reel is then watched for is the session's business, not a
+         * stopwatch's.
+         */
         const val CONTEXT_MAX_AGE_MS = 6_000L
+
+        const val HEARTBEAT_INTERVAL_MS = 700L
     }
 }

@@ -34,6 +34,13 @@ data class AppProfile(
     val enabled: Boolean = true,
     val surfaceActions: Map<String, RuleAction> = emptyMap(),
     val blockStyle: BlockStyle = BlockStyle.COVER,
+    /**
+     * Whether allowing reels in DMs covers only the video that was sent.
+     *
+     * On: the reel a friend sent plays, and swiping to the next one is the feed again. Off: the
+     * whole visit to the player stays allowed, however far it is scrolled.
+     */
+    val dmAllowanceEndsOnSwipe: Boolean = true,
     val antiScroll: AntiScrollSettings = AntiScrollSettings(),
 ) {
     fun actionFor(surface: FeedSurface): RuleAction =

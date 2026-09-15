@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.antidoomscroller.core.model.BlockStyle
 import com.antidoomscroller.core.model.DefaultProfiles
+import com.antidoomscroller.core.model.FeedSurface
 import com.antidoomscroller.core.model.RuleAction
 import com.antidoomscroller.core.model.Sensitivity
 import com.antidoomscroller.ui.LocalContainer
@@ -95,6 +96,28 @@ fun AppDetailScreen(packageName: String, onBack: () -> Unit) {
                             scope.launch {
                                 container.settingsRepository.updateProfile(packageName) {
                                     it.withAction(surface, if (blocked) RuleAction.BLOCK else RuleAction.ALLOW)
+                                }
+                            }
+                        },
+                    )
+                }
+            }
+
+            if (FeedSurface.SHORT_VIDEO_IN_DM in DefaultProfiles.configurableSurfaces(packageName)) {
+                SectionCard(
+                    title = "Reels sent in DMs",
+                    subtitle = "What \"allow\" covers when a friend sends you one.",
+                ) {
+                    SwitchRow(
+                        title = "Only the reel they sent",
+                        description = "On: it plays, and swiping to the next one counts as the " +
+                            "feed again. Off: the whole visit stays allowed, however far you scroll.",
+                        checked = profile.dmAllowanceEndsOnSwipe,
+                        enabled = profile.actionFor(FeedSurface.SHORT_VIDEO_IN_DM) == RuleAction.ALLOW,
+                        onCheckedChange = { value ->
+                            scope.launch {
+                                container.settingsRepository.updateProfile(packageName) {
+                                    it.copy(dmAllowanceEndsOnSwipe = value)
                                 }
                             }
                         },
