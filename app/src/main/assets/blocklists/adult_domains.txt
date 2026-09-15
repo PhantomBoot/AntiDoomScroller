@@ -1,0 +1,81 @@
+# AntiDoomScroller - bundled adult domain seed list
+#
+# One domain per line. Each entry blocks the domain and all of its subdomains.
+# Lines starting with # are ignored. Hosts-file lines (0.0.0.0 example.com) and
+# adblock lines (||example.com^) are also accepted when you import a list.
+#
+# This is a starting point, not a complete list. Nothing here is fetched from the
+# network: to extend it, import a list file from your own storage in
+# Settings > Adult filter > Import list, or add domains by hand.
+
+pornhub.com
+xvideos.com
+xnxx.com
+xhamster.com
+redtube.com
+youporn.com
+tube8.com
+spankbang.com
+eporner.com
+txxx.com
+hclips.com
+upornia.com
+porntrex.com
+gotporn.com
+porn.com
+pornone.com
+sex.com
+beeg.com
+tnaflix.com
+empflix.com
+drtuber.com
+nuvid.com
+sunporno.com
+vporn.com
+porndig.com
+pornhd.com
+youjizz.com
+motherless.com
+xmoviesforyou.com
+fux.com
+pornerbros.com
+porngo.com
+hqporner.com
+thumbzilla.com
+4tube.com
+pornhubpremium.com
+brazzers.com
+realitykings.com
+bangbros.com
+naughtyamerica.com
+digitalplayground.com
+mofos.com
+twistys.com
+babes.com
+adulttime.com
+evilangel.com
+blacked.com
+tushy.com
+vixen.com
+deeper.com
+onlyfans.com
+fansly.com
+manyvids.com
+chaturbate.com
+stripchat.com
+bongacams.com
+cam4.com
+myfreecams.com
+livejasmin.com
+camsoda.com
+flirt4free.com
+imlive.com
+rule34.xxx
+e621.net
+nhentai.net
+hanime.tv
+hentaihaven.xxx
+fakku.net
+literotica.com
+adultfriendfinder.com
+ashleymadison.com

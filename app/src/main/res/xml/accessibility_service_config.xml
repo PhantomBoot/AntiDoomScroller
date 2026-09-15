@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewScrolled"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows|flagIncludeNotImportantViews"
+    android:canPerformGestures="false"
+    android:canRetrieveWindowContent="true"
+    android:description="@string/accessibility_service_description"
+    android:notificationTimeout="200"
+    android:packageNames="com.instagram.android,com.google.android.youtube,com.zhiliaoapp.musically,com.facebook.katana,com.snapchat.android,com.reddit.frontpage,com.linkedin.android,com.android.chrome,com.opera.browser,com.opera.mini.native,com.opera.gx,org.mozilla.firefox,com.brave.browser,com.microsoft.emmx,com.duckduckgo.mobile.android,com.sec.android.app.sbrowser,com.UCMobile.intl,com.kiwibrowser.browser,com.vivaldi.browser"
+    android:settingsActivity="com.antidoomscroller.ui.MainActivity" />

@@ -1,0 +1,88 @@
+name: Build APK
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Two runs finishing together would both delete and recreate the "latest" release, leaving a
+# window where the download link 404s. One run per branch, newest wins.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Test and build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          # The action's default package set includes the long-obsolete "tools" package, which
+          # no longer resolves; ask for exactly what this build needs instead.
+          packages: "platform-tools platforms;android-35 build-tools;35.0.0"
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml', '**/*.gradle.kts') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Run the core test suite
+        run: ./gradlew :core:test --no-daemon
+
+      - name: Build the app
+        run: ./gradlew :app:assembleDebug --no-daemon
+
+      - name: Name the APK
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk dist/antidoomscroller.apk
+
+      - name: Upload the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: antidoomscroller-apk
+          path: dist/antidoomscroller.apk
+          if-no-files-found: error
+
+      - name: Publish a release for this tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/antidoomscroller.apk \
+            --title "AntiDoomScroller ${GITHUB_REF_NAME}" \
+            --notes "Install on your phone: download antidoomscroller.apk below, open it, and allow installing from this source when Android asks."
+
+      # One stable download link that always points at the newest build, so the APK can be
+      # fetched on a phone without signing in to GitHub.
+      - name: Publish the latest build
+        if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest dist/antidoomscroller.apk \
+            --title "Latest build" \
+            --prerelease \
+            --target "${GITHUB_SHA}" \
+            --notes "Built from \`${GITHUB_REF_NAME}\` at \`${GITHUB_SHA:0:7}\`. Download antidoomscroller.apk below, open it on your phone, and allow installing from that source when Android asks."
