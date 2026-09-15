@@ -77,8 +77,8 @@ fun DisableFilterScreen(onBack: () -> Unit) {
     }
 
     val challengeSettings = settings.adultFilter.challenge
-    val challenge = LockController.challengeFor(lock, challengeSettings)
-    val problem = challenge?.problems?.getOrNull(lock.solvedCount)
+    val problems = LockController.challengeFor(lock, challengeSettings)?.problems.orEmpty()
+    val problem = problems.getOrNull(lock.solvedCount)
 
     ScreenScaffold(title = "Turning the filter off", onBack = onBack) { padding ->
         ScrollingBody(padding) {
@@ -153,7 +153,7 @@ fun DisableFilterScreen(onBack: () -> Unit) {
                         )
                     } else if (problem != null) {
                         Text(
-                            "Problem ${lock.solvedCount + 1} of ${challenge.problems.size}",
+                            "Problem ${lock.solvedCount + 1} of ${problems.size}",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

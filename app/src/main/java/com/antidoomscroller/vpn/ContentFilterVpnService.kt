@@ -201,7 +201,7 @@ class ContentFilterVpnService : VpnService() {
         val observableStatus: StateFlow<FilterStatus> get() = statusState
 
         /** Returns the consent intent to show, or null when permission is already granted. */
-        fun consentIntent(context: Context): Intent? = prepare(context)
+        fun consentIntent(context: Context): Intent? = VpnService.prepare(context)
 
         fun start(context: Context) {
             val intent = Intent(context, ContentFilterVpnService::class.java)
