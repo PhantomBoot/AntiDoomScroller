@@ -3,7 +3,6 @@ package com.antidoomscroller.service
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Intent
-import android.graphics.Rect
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
 import com.antidoomscroller.AppContainer
@@ -11,13 +10,15 @@ import com.antidoomscroller.core.blocklist.DomainMatcher
 import com.antidoomscroller.core.blocklist.Ruleset
 import com.antidoomscroller.core.detect.ContextTrail
 import com.antidoomscroller.core.detect.DefaultSignatures
+import com.antidoomscroller.core.detect.MediaRegionResolver
+import com.antidoomscroller.core.detect.ScreenRect
+import com.antidoomscroller.core.detect.ScreenSnapshot
 import com.antidoomscroller.core.detect.SurfaceClassifier
 import com.antidoomscroller.core.lock.LockPhase
 import com.antidoomscroller.core.messages.MessageBook
 import com.antidoomscroller.core.messages.RenderedMessage
 import com.antidoomscroller.core.model.AppProfile
 import com.antidoomscroller.core.model.BlockStyle
-import com.antidoomscroller.core.model.FeedSurface
 import com.antidoomscroller.core.model.GuardSettings
 import com.antidoomscroller.core.model.MessageKind
 import com.antidoomscroller.core.policy.BlockLoopTracker
@@ -130,19 +131,19 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
         }
 
         val root = rootInActiveWindow ?: return
-        val collected = SnapshotCollector.collect(root, packageName, now)
+        val snapshot = SnapshotCollector.collect(root, packageName, now, screenBounds())
 
         trail.onPackageChanged(packageName)
-        val screenTags = classifier.contextTagsFor(collected.snapshot)
+        val screenTags = classifier.contextTagsFor(snapshot)
         if (screenTags.isNotEmpty()) {
             // The screen says where the user is now; that replaces wherever they were before.
             trail.clear()
             trail.recordAll(screenTags, now)
         }
 
-        val classification = classifier.classify(collected.snapshot, trail.activeTags(now))
+        val classification = classifier.classify(snapshot, trail.activeTags(now))
         when (val decision = resolver.decide(settings, packageName, classification, LocalDateTime.now())) {
-            is GuardDecision.Block -> enforceBlock(decision, profile, collected, now)
+            is GuardDecision.Block -> enforceBlock(decision, profile, snapshot, now)
             is GuardDecision.Allow -> overlay.dismiss()
         }
     }
@@ -150,7 +151,7 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
     private fun enforceBlock(
         decision: GuardDecision.Block,
         profile: AppProfile,
-        collected: CollectedScreen,
+        snapshot: ScreenSnapshot,
         nowMs: Long,
     ) {
         val rendered = messageBook.render(
@@ -164,33 +165,30 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
         }
 
         when (decision.style) {
-            BlockStyle.COVER -> cover(decision, rendered, collected)
+            BlockStyle.COVER -> cover(rendered, snapshot)
             BlockStyle.EXIT -> exit(decision, rendered, nowMs)
         }
     }
 
     /**
-     * Hide it and leave the app alone.
+     * Hide the video and leave the app alone.
      *
-     * A reels unit sitting inside an ordinary feed gets a box over exactly that unit, so the
-     * posts above and below it stay visible and scrollable. A full-screen player gets the card.
+     * The cover is sized to the video's own container, so a reels unit inside the timeline keeps
+     * the post header above it readable, and a full-bleed player keeps the app's tab bar tappable.
+     * When nothing on screen looks like the video, the content area between the app's own bars is
+     * used rather than blacking out the display.
      */
-    private fun cover(decision: GuardDecision.Block, rendered: RenderedMessage, collected: CollectedScreen) {
-        if (decision.surface == FeedSurface.SHORT_VIDEO_IN_HOME) {
-            val region = collected.regionFor(matchedIdFragments(decision))
-            if (region != null && !isMostOfScreen(region)) {
-                overlay.showPatch(region, rendered.body)
-                return
-            }
+    private fun cover(rendered: RenderedMessage, snapshot: ScreenSnapshot) {
+        val screen = screenBounds()
+        val signature = classifier.signatureFor(snapshot.packageName)
+        val region = MediaRegionResolver.resolve(snapshot, signature, screen)
+            ?: MediaRegionResolver.contentArea(snapshot, signature, screen)
+
+        if (region.isEmpty) {
+            overlay.dismiss()
+            return
         }
-        overlay.showPanel(
-            title = rendered.title,
-            body = rendered.body,
-            actionLabel = "Go back",
-            minimumVisibleMs = settings.enforcement.overlayMinimumMs,
-        ) {
-            performGlobalAction(GLOBAL_ACTION_BACK)
-        }
+        overlay.showPatch(region, rendered.title, rendered.body)
     }
 
     /** Step back out of the player; if the app keeps re-opening it, leave the app entirely. */
@@ -277,15 +275,9 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
 
     // -- helpers --------------------------------------------------------------
 
-    private fun matchedIdFragments(decision: GuardDecision.Block): List<String> =
-        decision.evidence.filter { it.startsWith("id~") }.map { it.removePrefix("id~") }
-
-    /** A "unit" that fills the screen is really a full-screen player; show the card instead. */
-    private fun isMostOfScreen(region: Rect): Boolean {
+    private fun screenBounds(): ScreenRect {
         val metrics = resources.displayMetrics
-        val screenArea = metrics.widthPixels.toLong() * metrics.heightPixels.toLong()
-        if (screenArea <= 0) return false
-        return region.width().toLong() * region.height().toLong() * 100 > screenArea * 80
+        return ScreenRect(0, 0, metrics.widthPixels, metrics.heightPixels)
     }
 
     /**

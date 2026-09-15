@@ -3,7 +3,6 @@ package com.antidoomscroller.service
 import android.accessibilityservice.AccessibilityService
 import android.graphics.Color
 import android.graphics.PixelFormat
-import android.graphics.Rect
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
@@ -14,14 +13,18 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.view.isVisible
+import com.antidoomscroller.core.detect.ScreenRect
 
 /**
  * Everything the guard draws on top of another app.
  *
  * Two shapes:
- *  - a *panel*: a full-screen card carrying the user's own message, for a short-video player;
- *  - a *patch*: an opaque box sized to one reels unit inside an otherwise normal feed, so the
- *    rest of the feed stays visible and usable.
+ *  - a *patch*: an opaque box sized to the video itself, so the app around it - the post header
+ *    above a reels unit, the navigation bar below a full-bleed player - stays visible and usable.
+ *    This is what covering a feed uses.
+ *  - a *panel*: a full-screen card carrying the user's own message, used when the guard is about
+ *    to leave the screen anyway, and for scroll reminders.
  *
  * Both use an accessibility overlay window, which needs no "draw over other apps" permission and
  * cannot be dismissed by the app underneath.
@@ -72,13 +75,13 @@ class BlockOverlay(private val service: AccessibilityService) {
     }
 
     /**
-     * Opaque box over exactly [bounds] - the reels unit and nothing else. Taps land on the box
-     * instead of the video; everything outside it keeps working normally.
+     * Opaque box over exactly [bounds] - the video and nothing else. Taps land on the box instead
+     * of the video; everything outside it, including the app's own navigation, keeps working.
      */
-    fun showPatch(bounds: Rect, label: String) {
+    fun showPatch(bounds: ScreenRect, title: String, body: String) {
         val layout = WindowManager.LayoutParams(
-            bounds.width().coerceAtLeast(1),
-            bounds.height().coerceAtLeast(1),
+            bounds.width.coerceAtLeast(1),
+            bounds.height.coerceAtLeast(1),
             bounds.left,
             bounds.top,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
@@ -90,15 +93,13 @@ class BlockOverlay(private val service: AccessibilityService) {
 
         val existing = view
         if (mode == Mode.PATCH && existing != null) {
-            // Same box moving with the feed: reposition instead of tearing it down and back up.
+            // The same box moving with the feed: reposition instead of tearing it down and back up.
             params = layout
-            (existing as? LinearLayout)?.let { box ->
-                (box.getChildAt(0) as? TextView)?.text = label
-            }
+            updatePatchText(existing, bounds, title, body)
             runCatching { windowManager?.updateViewLayout(existing, layout) }
             return
         }
-        replace(Mode.PATCH, buildPatch(label), layout)
+        replace(Mode.PATCH, buildPatch(bounds, title, body), layout)
     }
 
     /** Shows a panel briefly and takes it away again - used for scroll reminders. */
@@ -134,20 +135,44 @@ class BlockOverlay(private val service: AccessibilityService) {
         (card.getChildAt(1) as? TextView)?.text = body
     }
 
-    private fun buildPatch(label: String): View = LinearLayout(service).apply {
-        orientation = LinearLayout.VERTICAL
-        gravity = Gravity.CENTER
-        setBackgroundColor(Color.parseColor("#0B0B0D"))
-        setPadding(dp(16), dp(16), dp(16), dp(16))
-        isClickable = true
-        addView(
-            TextView(service).apply {
-                text = label
-                setTextColor(Color.parseColor("#7C8493"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-                gravity = Gravity.CENTER
-            },
-        )
+    /** The title is dropped on a short box, where two lines would not fit legibly. */
+    private fun roomForTitle(bounds: ScreenRect): Boolean = bounds.height >= dp(140)
+
+    private fun buildPatch(bounds: ScreenRect, title: String, body: String): View =
+        LinearLayout(service).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.parseColor("#0B0B0D"))
+            setPadding(dp(20), dp(16), dp(20), dp(16))
+            isClickable = true
+            addView(
+                TextView(service).apply {
+                    text = title
+                    setTextColor(Color.parseColor("#7C8493"))
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                    letterSpacing = 0.06f
+                    gravity = Gravity.CENTER
+                    isVisible = roomForTitle(bounds)
+                },
+            )
+            addView(
+                TextView(service).apply {
+                    text = body
+                    setTextColor(Color.parseColor("#E8EAF2"))
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                    gravity = Gravity.CENTER
+                    setPadding(0, dp(8), 0, 0)
+                },
+            )
+        }
+
+    private fun updatePatchText(view: View, bounds: ScreenRect, title: String, body: String) {
+        val box = view as? LinearLayout ?: return
+        (box.getChildAt(0) as? TextView)?.let {
+            it.text = title
+            it.isVisible = roomForTitle(bounds)
+        }
+        (box.getChildAt(1) as? TextView)?.text = body
     }
 
     private fun buildPanel(title: String, body: String, actionLabel: String, onAction: () -> Unit): View {

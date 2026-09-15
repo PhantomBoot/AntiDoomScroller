@@ -22,6 +22,22 @@ object DefaultSignatures {
     private fun instagram() = AppSignature(
         packageName = SupportedApps.INSTAGRAM,
         displayName = "Instagram",
+        // Most specific first: the video's own container beats the list it sits in, which is
+        // what keeps the cover off the post header above a reels unit.
+        mediaViewIds = listOf(
+            "clips_video_container",
+            "clips_viewer_video_container",
+            "clips_viewer_media_container",
+            "clips_netego",
+            "netego_carousel",
+            "reels_tray",
+            "media_container",
+            "video_container",
+            "clips_viewer",
+            "reels_viewer",
+        ),
+        bottomChromeViewIds = listOf("tab_bar"),
+        topChromeViewIds = listOf("action_bar_container", "action_bar"),
         contextViewIds = mapOf(
             ContextTag.DM to listOf("direct_thread", "direct_inbox", "message_list", "direct_fragment_container"),
             ContextTag.EXPLORE to listOf("explore_grid", "explore_recycler", "discovery_recycler", "search_tab"),
@@ -97,6 +113,16 @@ object DefaultSignatures {
     private fun youtube() = AppSignature(
         packageName = SupportedApps.YOUTUBE,
         displayName = "YouTube",
+        mediaViewIds = listOf(
+            "shorts_video_container",
+            "reel_player_page_container",
+            "reel_watch_fragment_root_view",
+            "shorts_shelf",
+            "rich_shelf",
+            "reel_recycler",
+        ),
+        bottomChromeViewIds = listOf("pivot_bar"),
+        topChromeViewIds = listOf("app_bar", "toolbar"),
         contextViewIds = mapOf(
             ContextTag.SEARCH to listOf("search_edit_text", "search_box", "voice_search"),
             ContextTag.HOME to listOf("browse_fragment", "results", "pivot_bar"),
@@ -142,6 +168,8 @@ object DefaultSignatures {
     private fun tiktok() = AppSignature(
         packageName = SupportedApps.TIKTOK,
         displayName = "TikTok",
+        mediaViewIds = listOf("vs_video", "video_container", "feed_view_pager"),
+        bottomChromeViewIds = listOf("main_bottom_tab"),
         contextViewIds = mapOf(
             ContextTag.DM to listOf("chat_room", "im_chat", "message_list"),
         ),
@@ -165,6 +193,8 @@ object DefaultSignatures {
     private fun facebook() = AppSignature(
         packageName = SupportedApps.FACEBOOK,
         displayName = "Facebook",
+        mediaViewIds = listOf("reels_video", "video_player_view_pager", "reels_viewer"),
+        bottomChromeViewIds = listOf("tab_bar", "bottom_navigation"),
         contextViewIds = mapOf(ContextTag.DM to listOf("thread_view", "message_list")),
         surfaces = listOf(
             SurfaceSignature(
@@ -192,6 +222,7 @@ object DefaultSignatures {
     private fun snapchat() = AppSignature(
         packageName = SupportedApps.SNAPCHAT,
         displayName = "Snapchat",
+        mediaViewIds = listOf("spotlight", "discover_feed"),
         contextViewIds = mapOf(ContextTag.DM to listOf("chat_input_bar", "conversation")),
         surfaces = listOf(
             SurfaceSignature(
@@ -207,6 +238,7 @@ object DefaultSignatures {
     private fun reddit() = AppSignature(
         packageName = SupportedApps.REDDIT,
         displayName = "Reddit",
+        mediaViewIds = listOf("video_feed", "reels_container"),
         surfaces = listOf(
             SurfaceSignature(
                 surface = FeedSurface.SHORT_VIDEO_FEED.id,
@@ -220,6 +252,7 @@ object DefaultSignatures {
     private fun linkedin() = AppSignature(
         packageName = SupportedApps.LINKEDIN,
         displayName = "LinkedIn",
+        mediaViewIds = listOf("video_viewer", "feed_video_viewpager"),
         surfaces = listOf(
             SurfaceSignature(
                 surface = FeedSurface.SHORT_VIDEO_FEED.id,

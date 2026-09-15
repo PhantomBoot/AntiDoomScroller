@@ -10,6 +10,7 @@ package com.antidoomscroller.core.detect
  * @param contentDescriptions lowercased content descriptions.
  * @param texts lowercased visible text, capped by the collector.
  * @param classNames lowercased view class names seen in the tree.
+ * @param bounds where each identified view sits on screen, used to size the cover.
  */
 data class ScreenSnapshot(
     val packageName: String,
@@ -18,6 +19,7 @@ data class ScreenSnapshot(
     val texts: Set<String> = emptySet(),
     val classNames: Set<String> = emptySet(),
     val timestampMs: Long = 0L,
+    val bounds: Map<String, ScreenRect> = emptyMap(),
 ) {
     fun hasViewIdContaining(fragment: String): Boolean = viewIds.any { it.contains(fragment) }
 

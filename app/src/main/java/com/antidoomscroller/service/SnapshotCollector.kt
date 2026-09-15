@@ -3,20 +3,8 @@ package com.antidoomscroller.service
 import android.graphics.Rect
 import android.os.Build
 import android.view.accessibility.AccessibilityNodeInfo
+import com.antidoomscroller.core.detect.ScreenRect
 import com.antidoomscroller.core.detect.ScreenSnapshot
-
-/** A snapshot plus where each identified view sits on screen. */
-data class CollectedScreen(
-    val snapshot: ScreenSnapshot,
-    /** Normalised view id to its on-screen box; first occurrence wins. */
-    val bounds: Map<String, Rect>,
-) {
-    /** The box of the first view whose id contains one of [fragments]. */
-    fun regionFor(fragments: Collection<String>): Rect? {
-        if (fragments.isEmpty()) return null
-        return bounds.entries.firstOrNull { (id, _) -> fragments.any { id.contains(it) } }?.value
-    }
-}
 
 /**
  * Turns the live accessibility node tree into a flat [ScreenSnapshot].
@@ -34,12 +22,17 @@ object SnapshotCollector {
     private const val MAX_TEXT_ENTRIES = 48
     private const val MAX_TEXT_LENGTH = 64
 
-    fun collect(root: AccessibilityNodeInfo, packageName: String, nowMs: Long): CollectedScreen {
+    fun collect(
+        root: AccessibilityNodeInfo,
+        packageName: String,
+        nowMs: Long,
+        screen: ScreenRect,
+    ): ScreenSnapshot {
         val viewIds = HashSet<String>()
         val descriptions = HashSet<String>()
         val texts = HashSet<String>()
         val classNames = HashSet<String>()
-        val bounds = LinkedHashMap<String, Rect>()
+        val bounds = LinkedHashMap<String, ScreenRect>()
 
         var visited = 0
         val queue = ArrayDeque<Pair<AccessibilityNodeInfo, Int>>()
@@ -51,9 +44,16 @@ object SnapshotCollector {
 
             ScreenSnapshot.normaliseViewId(node.viewIdResourceName)?.let { id ->
                 viewIds += id
-                if (!bounds.containsKey(id)) {
-                    val box = Rect().also(node::getBoundsInScreen)
-                    if (box.width() > 0 && box.height() > 0) bounds[id] = box
+                val box = Rect().also(node::getBoundsInScreen).toScreenRect()
+                if (!box.isEmpty) {
+                    val existing = bounds[id]
+                    // A list recycles the same id for rows above and below the viewport; keep the
+                    // one the user can actually see.
+                    if (existing == null ||
+                        box.intersect(screen).area > existing.intersect(screen).area
+                    ) {
+                        bounds[id] = box
+                    }
                 }
             }
             node.className?.toString()?.lowercase()?.let(classNames::add)
@@ -80,15 +80,13 @@ object SnapshotCollector {
         // Anything still queued when a cap was hit still has to be released on older releases.
         drain(queue.map { it.first }, root)
 
-        return CollectedScreen(
-            snapshot = ScreenSnapshot(
-                packageName = packageName,
-                viewIds = viewIds,
-                contentDescriptions = descriptions,
-                texts = texts,
-                classNames = classNames,
-                timestampMs = nowMs,
-            ),
+        return ScreenSnapshot(
+            packageName = packageName,
+            viewIds = viewIds,
+            contentDescriptions = descriptions,
+            texts = texts,
+            classNames = classNames,
+            timestampMs = nowMs,
             bounds = bounds,
         )
     }
@@ -119,6 +117,8 @@ object SnapshotCollector {
         drain(queue.toList(), root)
         return found
     }
+
+    private fun Rect.toScreenRect(): ScreenRect = ScreenRect(left, top, right, bottom)
 
     private fun drain(remaining: List<AccessibilityNodeInfo>, root: AccessibilityNodeInfo) {
         remaining.forEach { if (it !== root) recycle(it) }

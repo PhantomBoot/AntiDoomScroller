@@ -32,7 +32,7 @@ data class SurfaceSignature(
     val feedSurface: FeedSurface? get() = FeedSurface.fromId(surface)
 }
 
-/** Signatures for one host app, plus the view ids that mark navigation context. */
+/** Signatures for one host app, plus the view ids that mark navigation context and chrome. */
 @Serializable
 data class AppSignature(
     val packageName: String,
@@ -40,6 +40,15 @@ data class AppSignature(
     /** context tag -> view-id fragments that mean "the user is in this part of the app". */
     val contextViewIds: Map<String, List<String>> = emptyMap(),
     val surfaces: List<SurfaceSignature> = emptyList(),
+    /**
+     * View-id fragments for the video itself, most specific first. The cover is sized to the
+     * first of these that is actually on screen, so it lands on the video rather than the app.
+     */
+    val mediaViewIds: List<String> = emptyList(),
+    /** The app's own bottom navigation bar, which the cover must never sit on top of. */
+    val bottomChromeViewIds: List<String> = emptyList(),
+    /** The app's own top bar, likewise. */
+    val topChromeViewIds: List<String> = emptyList(),
 )
 
 @Serializable

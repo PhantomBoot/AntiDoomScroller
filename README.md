@@ -67,8 +67,9 @@ it that way.
 Each app has its own style, because the feeds are shaped differently:
 
 - **Cover** (Instagram's default) — an opaque box goes over the video and the app carries on
-  underneath. You stay exactly where you were. For a reel embedded in your timeline, the box is
-  sized to that one unit, so the rest of the feed keeps scrolling normally.
+  underneath. You stay exactly where you were. The box is sized to the video's own container, not
+  the screen: a reel in your timeline keeps the post header above it readable, and a full-screen
+  player keeps Instagram's navigation bar tappable, so you can leave the way you normally would.
 - **Back out** (YouTube's default) — Shorts is a whole tab, so the app steps back out of it and
   lands you on the tab you were on before. If the app keeps re-opening it, the guard stops fighting
   and leaves the app.

@@ -31,6 +31,8 @@ class SurfaceClassifier(private var pack: SignaturePack) {
 
     fun currentPack(): SignaturePack = pack
 
+    fun signatureFor(packageName: String): AppSignature? = pack.forPackage(packageName)
+
     /** Context tags implied by the snapshot itself, e.g. a visible DM thread. */
     fun contextTagsFor(snapshot: ScreenSnapshot): Set<String> {
         val app = pack.forPackage(snapshot.packageName) ?: return emptySet()
