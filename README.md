@@ -19,14 +19,15 @@ Everything happens on the device. No account, no server, no analytics.
    phone. This repository is private, so sign in to GitHub in your phone's browser first —
    otherwise the download link returns "not found". (Making the repository public removes that
    step, at the cost of the code being public too.)
-2. Download `antidoomscroller.apk` from the release marked **Latest build**. It is rebuilt on every
-   push, so that link always points at the newest version.
+2. Download the `antidoomscroller-<version>.apk` from the release at the top of the list - that is
+   the newest one. Every build is published as its own version and kept, so an older one stays
+   installable if a new one turns out to be worse.
 3. Open the downloaded file. Android will ask whether to allow installing apps from your browser —
    say yes, then install.
 4. Open AntiDoomScroller and follow the two setup steps below.
 
-Every build is signed with the same key, so a later build installs over the old one as an update
-and your settings survive. (That key is the standard Android debug key, committed on purpose — see
+Every build is signed with the same key and carries an increasing version, so a later build
+installs over the old one as an update and your settings survive. (That key is the standard Android debug key, committed on purpose — see
 [`keystore/README.md`](keystore/README.md). It is not a secret, and this build is for your own
 phone rather than the Play Store.)
 

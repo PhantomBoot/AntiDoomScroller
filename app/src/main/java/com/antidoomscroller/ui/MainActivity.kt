@@ -48,7 +48,10 @@ class MainActivity : ComponentActivity() {
         val container = AppContainer.from(this)
         lifecycleScope.launch {
             container.lockRepository.checkpoint()
+            container.masterLockRepository.checkpoint()
             val settings = container.settingsRepository.awaitLoaded()
+            // Undo any filter request left behind by the master gate writing to the wrong key.
+            container.lockRepository.cancelRequestShorterThan(settings.adultFilter.disableCooldownHours * 60)
             if (settings.adultFilter.enabled && container.lockRepository.isFilterActive()) {
                 ContentFilterVpnService.startIfPermitted(this@MainActivity)
             }

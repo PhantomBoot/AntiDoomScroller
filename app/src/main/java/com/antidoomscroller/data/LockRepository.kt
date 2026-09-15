@@ -48,6 +48,19 @@ class LockRepository(
     suspend fun requestDisable(cooldownMinutes: Int): LockState =
         mutate { LockController.tick(LockController.requestDisable(it, now(), cooldownMinutes), now()) }
 
+    /**
+     * Cancels a pending request whose wait is shorter than this gate's own.
+     *
+     * The master-switch gate briefly wrote its ten minute request into the adult filter's state,
+     * which would have let a 48 hour gate open in ten minutes. A request that could not have come
+     * from this gate is therefore thrown away rather than served.
+     */
+    suspend fun cancelRequestShorterThan(minimumMinutes: Int): LockState = mutate { state ->
+        val minimumMs = minimumMinutes.coerceAtLeast(1) * 60_000L
+        val pending = state.phase == LockPhase.COOLING || state.phase == LockPhase.CHALLENGE
+        if (pending && state.requiredMs < minimumMs) LockController.cancelRequest(state) else state
+    }
+
     /** Re-locking is free at every stage; that asymmetry is the whole point. */
     suspend fun cancelDisableRequest(): LockState = mutate { LockController.cancelRequest(it) }
 
@@ -78,8 +91,8 @@ class LockRepository(
     private suspend fun mutate(transform: (LockState) -> LockState): LockState = writeLock.withLock {
         var updated = LockState()
         context.lockDataStore.edit { preferences ->
-            updated = transform(decode(preferences[PrefKeys.LOCK_STATE]))
-            preferences[PrefKeys.LOCK_STATE] = json.encodeToString(LockState.serializer(), updated)
+            updated = transform(decode(preferences[key]))
+            preferences[key] = json.encodeToString(LockState.serializer(), updated)
         }
         updated
     }

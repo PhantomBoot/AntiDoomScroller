@@ -15,8 +15,12 @@ android {
         applicationId = "com.antidoomscroller"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        // CI passes its run number so every build is a distinct, increasing version. Android
+        // then treats a new build as an upgrade rather than a reinstall, and each APK is
+        // published under its own name instead of overwriting the last one.
+        val buildNumber = (System.getenv("ADS_BUILD_NUMBER") ?: "0").toIntOrNull() ?: 0
+        versionCode = 1 + buildNumber
+        versionName = "1.1.$buildNumber"
         resourceConfigurations += listOf("en")
     }
 
