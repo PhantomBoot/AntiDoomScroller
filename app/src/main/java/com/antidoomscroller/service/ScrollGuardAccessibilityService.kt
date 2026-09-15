@@ -18,6 +18,8 @@ import com.antidoomscroller.core.detect.ScreenSnapshot
 import com.antidoomscroller.core.detect.ShortVideoSession
 import com.antidoomscroller.core.detect.SurfaceClassifier
 import com.antidoomscroller.core.lock.LockPhase
+import com.antidoomscroller.core.lock.ScrollPassController
+import com.antidoomscroller.core.lock.ScrollPassState
 import com.antidoomscroller.core.messages.MessageBook
 import com.antidoomscroller.core.messages.RenderedMessage
 import com.antidoomscroller.core.model.AppProfile
@@ -67,6 +69,7 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
     @Volatile private var settings: GuardSettings = GuardSettings()
     @Volatile private var ruleset: Ruleset = Ruleset(DomainMatcher.EMPTY, 0, 0, 0)
     @Volatile private var filterUnlocked: Boolean = false
+    @Volatile private var scrollPass: ScrollPassState = ScrollPassState()
 
     private var backOff = BackOffBudget(attempts = 3, windowMs = 15_000)
     private var lastEvaluationMs = 0L
@@ -97,6 +100,9 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
         }
         serviceScope.launch {
             container.lockRepository.state.collectLatest { filterUnlocked = it.phase == LockPhase.DISABLED }
+        }
+        serviceScope.launch {
+            container.scrollPassRepository.state.collectLatest { scrollPass = it }
         }
     }
 
@@ -163,7 +169,22 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
 
         updateHeartbeat(classification.surface.isShortVideo)
 
-        when (val decision = resolver.decide(settings, packageName, classification, LocalDateTime.now())) {
+        // Projected to this instant: the stored progress is only written occasionally, so reading
+        // it directly would leave a spent allowance looking like it was still running.
+        val passRunning = ScrollPassController.isRunning(
+            scrollPass,
+            settings.scrollPass,
+            container.scrollPassRepository.now(),
+        )
+
+        val decision = resolver.decide(
+            settings = settings,
+            packageName = packageName,
+            classification = classification,
+            now = LocalDateTime.now(),
+            scrollPassRunning = passRunning,
+        )
+        when (decision) {
             is GuardDecision.Block -> enforceBlock(decision, profile, snapshot, now)
             is GuardDecision.Allow -> {
                 overlay.dismiss()

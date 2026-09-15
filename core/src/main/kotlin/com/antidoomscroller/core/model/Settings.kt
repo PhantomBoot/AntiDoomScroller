@@ -163,6 +163,19 @@ data class BreakWindow(
     val wrapsMidnight: Boolean get() = endMinuteOfDay <= startMinuteOfDay
 }
 
+/**
+ * The rationed escape hatch: one run of unblocked scrolling, then a long wait.
+ *
+ * Separate from [ScheduleSettings] because a scheduled break is a decision made in advance and
+ * this one is made in the moment - which is exactly why it costs a day.
+ */
+@Serializable
+data class ScrollPassSettings(
+    val enabled: Boolean = true,
+    val durationMinutes: Int = 15,
+    val cooldownHours: Int = 24,
+)
+
 @Serializable
 data class ScheduleSettings(
     val enabled: Boolean = false,
@@ -256,6 +269,7 @@ data class GuardSettings(
     val profiles: List<AppProfile> = DefaultProfiles.all(),
     val messages: MessageSettings = MessageSettings(),
     val schedule: ScheduleSettings = ScheduleSettings(),
+    val scrollPass: ScrollPassSettings = ScrollPassSettings(),
     val strictMode: StrictModeSettings = StrictModeSettings(),
     val adultFilter: AdultFilterSettings = AdultFilterSettings(),
     val enforcement: EnforcementSettings = EnforcementSettings(),

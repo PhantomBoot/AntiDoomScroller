@@ -22,7 +22,9 @@ class CooldownWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        AppContainer.from(applicationContext).lockRepository.checkpoint()
+        val container = AppContainer.from(applicationContext)
+        container.lockRepository.checkpoint()
+        container.scrollPassRepository.checkpoint(container.settingsRepository.awaitLoaded().scrollPass)
         return Result.success()
     }
 

@@ -1,12 +1,16 @@
 package com.antidoomscroller.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -16,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -64,6 +69,51 @@ fun ScheduleScreen(onBack: () -> Unit) {
                 )
             }
 
+            SectionCard(
+                title = "Scroll on purpose",
+                subtitle = "A button on the home screen that opens the feeds for a set run, then " +
+                    "locks them and stays out of reach for the rest of the day. Unlike a " +
+                    "scheduled break it is decided in the moment, which is why it costs so much.",
+            ) {
+                SwitchRow(
+                    title = "Offer the button",
+                    checked = settings.scrollPass.enabled,
+                    onCheckedChange = { enabled ->
+                        scope.launch {
+                            container.settingsRepository.update {
+                                it.copy(scrollPass = it.scrollPass.copy(enabled = enabled))
+                            }
+                        }
+                    },
+                )
+                StepperRow(
+                    label = "Length",
+                    value = "${settings.scrollPass.durationMinutes} min",
+                    onChange = { step ->
+                        scope.launch {
+                            container.settingsRepository.update {
+                                val next = (it.scrollPass.durationMinutes + step).coerceIn(5, 120)
+                                it.copy(scrollPass = it.scrollPass.copy(durationMinutes = next))
+                            }
+                        }
+                    },
+                    step = 5,
+                )
+                StepperRow(
+                    label = "Then unavailable for",
+                    value = "${settings.scrollPass.cooldownHours} h",
+                    onChange = { step ->
+                        scope.launch {
+                            container.settingsRepository.update {
+                                val next = (it.scrollPass.cooldownHours + step).coerceIn(1, 168)
+                                it.copy(scrollPass = it.scrollPass.copy(cooldownHours = next))
+                            }
+                        }
+                    },
+                    step = 6,
+                )
+            }
+
             schedule.windows.forEach { window ->
                 SectionCard(
                     title = window.label,
@@ -80,32 +130,21 @@ fun ScheduleScreen(onBack: () -> Unit) {
                     )
                     Spacer(Modifier.height(8.dp))
                     Text("Days", style = MaterialTheme.typography.labelLarge)
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        (1..7).forEach { day ->
-                            val selected = day in window.days
-                            TextButton(onClick = {
-                                updateWindows { list ->
-                                    list.map {
-                                        if (it.id != window.id) {
-                                            it
-                                        } else {
-                                            val days = if (selected) it.days - day else it.days + day
-                                            it.copy(days = days)
-                                        }
+                    DayPicker(
+                        selected = window.days,
+                        onToggle = { day ->
+                            updateWindows { list ->
+                                list.map {
+                                    if (it.id != window.id) {
+                                        it
+                                    } else {
+                                        val days = if (day in it.days) it.days - day else it.days + day
+                                        it.copy(days = days)
                                     }
                                 }
-                            }) {
-                                Text(
-                                    ScheduleEvaluator.dayLabel(day),
-                                    color = if (selected) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
-                                )
                             }
-                        }
-                    }
+                        },
+                    )
 
                     Spacer(Modifier.height(8.dp))
                     TimeRow(
@@ -148,6 +187,67 @@ fun ScheduleScreen(onBack: () -> Unit) {
                 }) {
                     Text("Add a break window")
                 }
+            }
+        }
+    }
+}
+
+/**
+ * All seven days, always reachable.
+ *
+ * The previous version laid seven [TextButton]s in a plain row; each carries a 58dp minimum
+ * width, so the row measured wider than a phone and Saturday and Sunday were clipped off the
+ * right-hand edge with no way to scroll to them. Equal weights make the row fit whatever the
+ * screen is.
+ */
+@Composable
+private fun StepperRow(label: String, value: String, step: Int, onChange: (Int) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text("$label $value", style = MaterialTheme.typography.bodyMedium)
+        Row {
+            TextButton(onClick = { onChange(-step) }) { Text("-$step") }
+            TextButton(onClick = { onChange(step) }) { Text("+$step") }
+        }
+    }
+}
+
+@Composable
+private fun DayPicker(selected: Set<Int>, onToggle: (Int) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        (1..7).forEach { day ->
+            val isSelected = day in selected
+            Box(
+                Modifier
+                    .weight(1f)
+                    .height(40.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(
+                        if (isSelected) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        },
+                    )
+                    .clickable { onToggle(day) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = ScheduleEvaluator.dayLabel(day),
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    color = if (isSelected) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
             }
         }
     }

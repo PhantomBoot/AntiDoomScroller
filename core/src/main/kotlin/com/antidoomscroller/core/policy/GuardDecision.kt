@@ -8,6 +8,9 @@ enum class AllowReason {
     MASTER_SWITCH_OFF,
     APP_NOT_GUARDED,
     SCHEDULED_BREAK,
+
+    /** The user spent today's allowance and is inside it. */
+    SCROLL_PASS,
     SURFACE_ALLOWED,
     SURFACE_UNRECOGNISED,
 

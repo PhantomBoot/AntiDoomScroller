@@ -17,4 +17,5 @@ internal object PrefKeys {
     val SETTINGS: Preferences.Key<String> = stringPreferencesKey("settings_json")
     val SIGNATURES: Preferences.Key<String> = stringPreferencesKey("signature_pack_json")
     val LOCK_STATE: Preferences.Key<String> = stringPreferencesKey("lock_state_json")
+    val SCROLL_PASS: Preferences.Key<String> = stringPreferencesKey("scroll_pass_json")
 }

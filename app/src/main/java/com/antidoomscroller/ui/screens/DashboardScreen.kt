@@ -3,12 +3,16 @@ package com.antidoomscroller.ui.screens
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -18,6 +22,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.antidoomscroller.core.lock.LockPhase
+import com.antidoomscroller.core.lock.ScrollPassController
+import com.antidoomscroller.core.lock.ScrollPassPhase
+import com.antidoomscroller.core.util.Durations
 import com.antidoomscroller.ui.LocalContainer
 import com.antidoomscroller.ui.MainActivity
 import com.antidoomscroller.ui.components.NavRow
@@ -54,6 +61,48 @@ fun DashboardScreen(
     }
 
     val guardedApps = settings.profiles.count { it.enabled }
+    val scrollPass by container.scrollPassRepository.state.collectAsStateWithLifecycle()
+
+    // The phase is projected from stored progress, so it needs re-reading on a timer rather than
+    // only when something is written.
+    var passPhase by remember { mutableStateOf(ScrollPassPhase.AVAILABLE) }
+    var passRemainingMs by remember { mutableLongStateOf(0L) }
+    var confirmingPass by remember { mutableStateOf(false) }
+
+    LaunchedEffect(scrollPass, settings.scrollPass) {
+        while (true) {
+            val now = container.scrollPassRepository.now()
+            passPhase = ScrollPassController.phase(scrollPass, settings.scrollPass, now)
+            passRemainingMs = ScrollPassController.remainingMs(scrollPass, settings.scrollPass, now)
+            delay(1_000)
+        }
+    }
+
+    if (confirmingPass) {
+        AlertDialog(
+            onDismissRequest = { confirmingPass = false },
+            title = { Text("Use today's ${settings.scrollPass.durationMinutes} minutes?") },
+            text = {
+                Text(
+                    "Feeds unblock straight away and lock themselves again after " +
+                        "${settings.scrollPass.durationMinutes} minutes. You will not be able to " +
+                        "do this again for ${settings.scrollPass.cooldownHours} hours, and it " +
+                        "cannot be cancelled once it starts.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmingPass = false
+                    scope.launch { container.scrollPassRepository.start(settings.scrollPass) }
+                }) {
+                    Text("Start")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingPass = false }) { Text("Not now") }
+            },
+        )
+    }
 
     ScreenScaffold(title = "AntiDoomScroller") { padding ->
         ScrollingBody(padding) {
@@ -104,6 +153,42 @@ fun DashboardScreen(
                         }
                     },
                 )
+            }
+
+            if (settings.scrollPass.enabled) {
+                SectionCard(
+                    title = "Scroll on purpose",
+                    subtitle = when (passPhase) {
+                        ScrollPassPhase.AVAILABLE ->
+                            "One run of ${settings.scrollPass.durationMinutes} minutes with the " +
+                                "feeds open. Using it spends the whole day's allowance."
+
+                        ScrollPassPhase.RUNNING -> "Feeds are open. Blocking comes back on its own."
+                        ScrollPassPhase.COOLING -> "Spent for today."
+                    },
+                ) {
+                    when (passPhase) {
+                        ScrollPassPhase.AVAILABLE -> Button(onClick = { confirmingPass = true }) {
+                            Text("Scroll for ${settings.scrollPass.durationMinutes} minutes")
+                        }
+
+                        ScrollPassPhase.RUNNING -> {
+                            Text(
+                                Durations.formatPrecise(passRemainingMs),
+                                style = MaterialTheme.typography.headlineMedium,
+                            )
+                            Text(
+                                "left before feeds lock again",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+
+                        ScrollPassPhase.COOLING -> OutlinedButton(onClick = {}, enabled = false) {
+                            Text("Available again in ${Durations.format(passRemainingMs)}")
+                        }
+                    }
+                }
             }
 
             SectionCard(

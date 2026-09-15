@@ -17,11 +17,16 @@ import java.time.LocalDateTime
  */
 class PolicyResolver {
 
+    /**
+     * @param scrollPassRunning true while the user's rationed allowance is being spent, which
+     *   pauses feed blocking exactly like a scheduled break. It never touches the adult filter.
+     */
     fun decide(
         settings: GuardSettings,
         packageName: String,
         classification: Classification,
         now: LocalDateTime,
+        scrollPassRunning: Boolean = false,
     ): GuardDecision {
         if (!settings.masterEnabled) {
             return GuardDecision.Allow(AllowReason.MASTER_SWITCH_OFF, classification.surface)
@@ -41,6 +46,13 @@ class PolicyResolver {
         // are structurally incapable of being blocked - no setting can change this.
         if (!classification.surface.isShortVideo) {
             return GuardDecision.Allow(AllowReason.NOT_SHORT_VIDEO, classification.surface)
+        }
+
+        if (scrollPassRunning) {
+            return GuardDecision.Allow(
+                reason = AllowReason.SCROLL_PASS,
+                surface = classification.surface,
+            )
         }
 
         val breakWindow = ScheduleEvaluator.activeWindow(settings.schedule, packageName, now)
