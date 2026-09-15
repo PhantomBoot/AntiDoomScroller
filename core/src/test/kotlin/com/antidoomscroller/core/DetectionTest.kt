@@ -20,6 +20,9 @@ class DetectionTest {
     private fun instagram(vararg ids: String) =
         ScreenSnapshot(SupportedApps.INSTAGRAM, viewIds = ids.toSet())
 
+    private fun instagramScreen(ids: Set<String>, descriptions: Set<String>) =
+        ScreenSnapshot(SupportedApps.INSTAGRAM, viewIds = ids, contentDescriptions = descriptions)
+
     private fun youtube(ids: Set<String> = emptySet(), descriptions: Set<String> = emptySet()) =
         ScreenSnapshot(SupportedApps.YOUTUBE, viewIds = ids, contentDescriptions = descriptions)
 
@@ -62,6 +65,53 @@ class DetectionTest {
     fun `reels embedded in the home feed outrank the plain home feed`() {
         val result = classifier.classify(instagram("feed_recycler_view", "clips_netego_container"), emptySet())
         assertEquals(FeedSurface.SHORT_VIDEO_IN_HOME, result.surface)
+    }
+
+    @Test
+    fun `a profile full of reels is still a profile`() {
+        // Every reel thumbnail is described "Reel by <name>". Matching that text meant opening
+        // someone's profile counted as opening the Reels feed, and it was covered.
+        val profile = instagramScreen(
+            ids = setOf("profile_header", "profile_tab", "tab_bar", "profile_grid_recycler_view"),
+            descriptions = setOf("reel by alice", "reel by bob", "reels tab", "posts tab"),
+        )
+        val result = classifier.classify(profile, emptySet())
+        assertFalse(
+            "a profile must never be treated as a short-video feed",
+            result.surface.isShortVideo,
+        )
+    }
+
+    @Test
+    fun `an explore grid of reels is explore, not the reels feed`() {
+        val explore = instagramScreen(
+            ids = setOf("explore_grid", "tab_bar", "search_tab"),
+            descriptions = setOf("reel by alice", "reel by bob"),
+        )
+        assertEquals(FeedSurface.EXPLORE, classifier.classify(explore, emptySet()).surface)
+    }
+
+    @Test
+    fun `a reel in the timeline answers to the home feed switch, not the reels tab switch`() {
+        val home = instagramScreen(
+            ids = setOf("feed_recycler_view", "clips_netego_container", "tab_bar"),
+            descriptions = setOf("reel by alice"),
+        )
+        assertEquals(FeedSurface.SHORT_VIDEO_IN_HOME, classifier.classify(home, emptySet()).surface)
+    }
+
+    @Test
+    fun `the reels player is still caught once it is actually open`() {
+        assertEquals(
+            FeedSurface.SHORT_VIDEO_FEED,
+            classifier.classify(
+                instagramScreen(
+                    ids = setOf("clips_viewer_root", "clips_viewer_video_container", "tab_bar"),
+                    descriptions = setOf("reel by alice"),
+                ),
+                emptySet(),
+            ).surface,
+        )
     }
 
     @Test

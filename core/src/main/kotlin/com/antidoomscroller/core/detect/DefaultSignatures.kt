@@ -71,6 +71,11 @@ object DefaultSignatures {
                 forbidContext = listOf(ContextTag.DM),
             ),
             // The Reels tab itself.
+            //
+            // Matched on the player's own container ids, never on content descriptions. Every
+            // reel *thumbnail* in the app is described as "Reel by <name>" - on a profile grid,
+            // on Explore, in the timeline - so matching that text classified those screens as the
+            // Reels feed and took them away. A grid of reels is not a reel feed.
             SurfaceSignature(
                 surface = FeedSurface.SHORT_VIDEO_FEED.id,
                 weight = 120,
@@ -81,7 +86,8 @@ object DefaultSignatures {
                     "reels_viewer",
                     "clips_tab_container",
                 ),
-                anyContentDescription = listOf("reels tab", "reel by", "reels video"),
+                // A profile is a profile even if every post on it is a reel.
+                noneViewId = listOf("profile_header"),
                 forbidContext = listOf(ContextTag.DM),
             ),
             // Reels unit embedded in the main timeline.
@@ -212,14 +218,15 @@ object DefaultSignatures {
                 surface = FeedSurface.SHORT_VIDEO_FEED.id,
                 weight = 120,
                 anyViewId = listOf("reels_viewer", "reels_video", "video_player_view_pager"),
-                anyContentDescription = listOf("reels"),
+                noneViewId = listOf("profile_header"),
                 forbidContext = listOf(ContextTag.DM),
             ),
             SurfaceSignature(
                 surface = FeedSurface.SHORT_VIDEO_IN_HOME.id,
                 weight = 110,
                 allViewId = listOf("feed_recycler_view"),
-                anyContentDescription = listOf("reels"),
+                // A unit id, not the word "Reels": the navigation bar carries that everywhere.
+                anyViewId = listOf("reels_tray", "reels_unit", "reels_carousel"),
             ),
         ),
     )
@@ -234,7 +241,6 @@ object DefaultSignatures {
                 surface = FeedSurface.SHORT_VIDEO_FEED.id,
                 weight = 120,
                 anyViewId = listOf("spotlight", "discover_feed"),
-                anyContentDescription = listOf("spotlight"),
                 forbidContext = listOf(ContextTag.DM),
             ),
         ),
