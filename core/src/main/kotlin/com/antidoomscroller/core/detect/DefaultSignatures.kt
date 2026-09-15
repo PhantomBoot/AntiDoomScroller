@@ -25,6 +25,8 @@ object DefaultSignatures {
         // Most specific first: the video's own container beats the list it sits in, which is
         // what keeps the cover off the post header above a reels unit.
         mediaViewIds = listOf(
+            "clips_single_media_component",
+            "clips_media_component",
             "clips_video_container",
             "clips_viewer_video_container",
             "clips_viewer_media_container",
@@ -42,21 +44,37 @@ object DefaultSignatures {
             "class:textureview",
             "class:surfaceview",
             "class:videoview",
-            "clips_viewer",
+            "clips_viewer_view_pager",
+            "clips_viewer_container",
         ),
         bottomChromeViewIds = listOf("tab_bar"),
         topChromeViewIds = listOf("action_bar_container", "action_bar"),
+        // Deliberately none of clips_tab, feed_tab, direct_tab, search_tab or profile_tab: those
+        // are the buttons in the bottom navigation bar, on screen everywhere in the app. Using
+        // them as context markers meant every context was always active. These are the ids of the
+        // screens themselves.
         contextViewIds = mapOf(
-            ContextTag.DM to listOf("direct_thread", "direct_inbox", "message_list", "direct_fragment_container"),
+            ContextTag.DM to listOf(
+                "direct_thread",
+                "direct_inbox_action_bar",
+                "inbox_refreshable_thread_list",
+                "message_list",
+                "direct_fragment_container",
+            ),
             ContextTag.EXPLORE to listOf(
-                "explore",
-                "discover",
-                "search_tab",
+                "explore_grid",
+                "explore_recycler",
+                "discovery_recycler",
                 "search_result",
                 "grid_recycler",
             ),
-            ContextTag.HOME to listOf("feed_recycler_view", "main_feed_recycler_view", "feed_tab"),
-            ContextTag.PROFILE to listOf("profile_tab", "profile_header"),
+            ContextTag.HOME to listOf(
+                "main_feed_action_bar",
+                "feed_recycler_view",
+                "main_feed_recycler_view",
+                "refreshable_container",
+            ),
+            ContextTag.PROFILE to listOf("profile_header"),
             ContextTag.SEARCH to listOf("search_edit_text", "action_bar_search_edit_text"),
         ),
         surfaces = listOf(
@@ -66,6 +84,9 @@ object DefaultSignatures {
             SurfaceSignature(
                 surface = FeedSurface.SHORT_VIDEO_FEED.id,
                 weight = 160,
+                // The clips_viewer family covers clips_viewer_view_pager, _container and _root
+                // across releases. It is safe to be broad here now that the collector only
+                // records views that are actually on screen.
                 allViewId = listOf("clips_viewer"),
                 anyViewId = listOf("clips_tab", "tab_bar", "tab_bar_shadow"),
             ),

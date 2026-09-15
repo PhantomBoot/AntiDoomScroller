@@ -139,6 +139,67 @@ class DetectionTest {
     }
 
     @Test
+    fun `leaving the reels tab for the dm inbox stops the block`() {
+        // Ids taken from a detection report on a real install, minus the clips_* views that were
+        // still attached but off screen - which is what the collector now drops. The bottom
+        // navigation buttons stay, because they genuinely are on screen everywhere.
+        val dmInbox = instagramScreen(
+            ids = setOf(
+                "direct_inbox_action_bar",
+                "inbox_refreshable_thread_list_recyclerview",
+                "action_bar_tab_layout",
+                "clips_tab",
+                "feed_tab",
+                "direct_tab",
+                "profile_tab",
+                "tab_bar",
+            ),
+            descriptions = setOf("3 new messages ·", "message", "new message", "active now"),
+        )
+        assertFalse(
+            "the dm inbox is not the reels feed",
+            classifier.classify(dmInbox, emptySet()).surface.isShortVideo,
+        )
+    }
+
+    @Test
+    fun `the reels tab button is not evidence of anything`() {
+        // clips_tab is the button in the navigation bar, on screen on every page of the app.
+        // Treating it as the Reels tab left the cover up over the whole of Instagram.
+        val homeFeed = instagramScreen(
+            ids = setOf(
+                "main_feed_action_bar",
+                "refreshable_container",
+                "overlay_stories_tray_container",
+                "clips_tab",
+                "feed_tab",
+                "tab_bar",
+            ),
+            descriptions = setOf("instagram home feed", "reels tray container", "home"),
+        )
+        val result = classifier.classify(homeFeed, emptySet())
+        assertFalse("the home feed is not the reels feed", result.surface.isShortVideo)
+    }
+
+    @Test
+    fun `the reels player is caught by the pager it actually uses`() {
+        val reelsTab = instagramScreen(
+            ids = setOf(
+                "clips_viewer_view_pager",
+                "clips_viewer_container",
+                "clips_single_media_component",
+                "clips_swipe_refresh_container",
+                "clips_tab",
+                "tab_bar",
+                "class:textureview",
+                "video:fullscreen",
+            ),
+            descriptions = setOf("reel by smalphaa. double tap to play or pause.", "reels"),
+        )
+        assertEquals(FeedSurface.SHORT_VIDEO_FEED, classifier.classify(reelsTab, emptySet()).surface)
+    }
+
+    @Test
     fun `the reels player is still caught once it is actually open`() {
         assertEquals(
             FeedSurface.SHORT_VIDEO_FEED,

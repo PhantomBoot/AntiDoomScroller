@@ -50,6 +50,23 @@ object SnapshotCollector {
 
             val box = Rect().also(node::getBoundsInScreen).toScreenRect()
 
+            // A snapshot describes what is on the screen, not what exists in the tree. Instagram
+            // keeps the Reels fragment attached after you leave it, so its clips_* views are
+            // still reachable from the DM inbox and the home feed - recording them regardless of
+            // visibility meant the guard believed the reels player was open everywhere in the
+            // app, and the cover never came down.
+            val onScreen = node.isVisibleToUser && !box.intersect(screen).isEmpty
+            if (!onScreen) {
+                if (depth < MAX_DEPTH) {
+                    for (index in 0 until node.childCount) {
+                        val child = node.getChild(index) ?: continue
+                        queue.addLast(child to depth + 1)
+                    }
+                }
+                if (node !== root) recycle(node)
+                continue
+            }
+
             ScreenSnapshot.normaliseViewId(node.viewIdResourceName)?.let { id ->
                 viewIds += id
                 record(bounds, id, box, screen)
