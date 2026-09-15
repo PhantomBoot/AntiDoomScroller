@@ -16,13 +16,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.antidoomscroller.ui.LocalContainer
+import com.antidoomscroller.ui.components.NavRow
 import com.antidoomscroller.ui.components.ScreenScaffold
 import com.antidoomscroller.ui.components.ScrollingBody
 import com.antidoomscroller.ui.components.SectionCard
 import kotlinx.coroutines.launch
 
 @Composable
-fun AboutScreen(onBack: () -> Unit) {
+fun AboutScreen(onBack: () -> Unit, onOpenDetectionReport: () -> Unit = {}) {
     val container = LocalContainer.current
     val signatures by container.settingsRepository.signatures.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
@@ -83,6 +84,13 @@ fun AboutScreen(onBack: () -> Unit) {
                 Paragraph(
                     "Apps rename their internal views between releases. If a feed stops being " +
                         "recognised, the signature pack can be replaced without a new build.",
+                )
+                Spacer(Modifier.height(8.dp))
+                NavRow(
+                    title = "What the guard sees",
+                    description = "If a feed stops being recognised, this shows the view names " +
+                        "behind the decision so they can be corrected.",
+                    onClick = onOpenDetectionReport,
                 )
                 Spacer(Modifier.height(8.dp))
                 OutlinedButton(onClick = {

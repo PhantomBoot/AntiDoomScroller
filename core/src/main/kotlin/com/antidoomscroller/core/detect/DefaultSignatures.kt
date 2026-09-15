@@ -46,7 +46,13 @@ object DefaultSignatures {
         topChromeViewIds = listOf("action_bar_container", "action_bar"),
         contextViewIds = mapOf(
             ContextTag.DM to listOf("direct_thread", "direct_inbox", "message_list", "direct_fragment_container"),
-            ContextTag.EXPLORE to listOf("explore_grid", "explore_recycler", "discovery_recycler", "search_tab"),
+            ContextTag.EXPLORE to listOf(
+                "explore",
+                "discover",
+                "search_tab",
+                "search_result",
+                "grid_recycler",
+            ),
             ContextTag.HOME to listOf("feed_recycler_view", "main_feed_recycler_view", "feed_tab"),
             ContextTag.PROFILE to listOf("profile_tab", "profile_header"),
             ContextTag.SEARCH to listOf("search_edit_text", "action_bar_search_edit_text"),
@@ -69,10 +75,19 @@ object DefaultSignatures {
                 noneViewId = listOf("clips_tab", "tab_bar"),
                 requireContext = listOf(ContextTag.DM),
             ),
+            // Opened from the explore grid. The origin is already known from the context, so a
+            // video filling the screen is enough - no dependence on a container id that may not
+            // survive the next release. Stories are not reachable from Explore, so the
+            // full-screen marker cannot swallow them here.
             SurfaceSignature(
                 surface = FeedSurface.SHORT_VIDEO_IN_EXPLORE.id,
                 weight = 130,
-                anyViewId = listOf("clips_viewer", "clips_video_container", "reels_viewer"),
+                anyViewId = listOf(
+                    "clips_viewer",
+                    "clips_video_container",
+                    "reels_viewer",
+                    "video:fullscreen",
+                ),
                 requireContext = listOf(ContextTag.EXPLORE),
                 forbidContext = listOf(ContextTag.DM),
             ),

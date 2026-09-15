@@ -1,13 +1,18 @@
 package com.antidoomscroller.ui.screens
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -142,6 +147,53 @@ fun AppDetailScreen(packageName: String, onBack: () -> Unit) {
                         }
                     },
                 )
+            }
+
+            SectionCard(
+                title = "Time on the ordinary feed",
+                subtitle = "The home feed is never removed. Past this much continuous scrolling " +
+                    "it is covered where it stands, with the navigation bar and the back gesture " +
+                    "left alone. Time spent reading a post does not count.",
+            ) {
+                SwitchRow(
+                    title = "Cover the feed after a while",
+                    checked = profile.feedTime.enabled,
+                    onCheckedChange = { enabled ->
+                        scope.launch {
+                            container.settingsRepository.updateProfile(packageName) {
+                                it.copy(feedTime = it.feedTime.copy(enabled = enabled))
+                            }
+                        }
+                    },
+                )
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        "After ${profile.feedTime.limitMinutes} min of scrolling",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Row {
+                        TextButton(onClick = {
+                            scope.launch {
+                                container.settingsRepository.updateProfile(packageName) {
+                                    val next = (it.feedTime.limitMinutes - 1).coerceIn(1, 240)
+                                    it.copy(feedTime = it.feedTime.copy(limitMinutes = next))
+                                }
+                            }
+                        }) { Text("-1") }
+                        TextButton(onClick = {
+                            scope.launch {
+                                container.settingsRepository.updateProfile(packageName) {
+                                    val next = (it.feedTime.limitMinutes + 1).coerceIn(1, 240)
+                                    it.copy(feedTime = it.feedTime.copy(limitMinutes = next))
+                                }
+                            }
+                        }) { Text("+1") }
+                    }
+                }
             }
 
             SectionCard(

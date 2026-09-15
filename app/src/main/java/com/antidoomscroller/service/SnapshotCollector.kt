@@ -25,6 +25,9 @@ object SnapshotCollector {
     /** Widget classes that mean "a video is playing here", whatever the app calls the view. */
     private val VIDEO_SURFACE_CLASSES = listOf("textureview", "surfaceview", "videoview")
 
+    /** Share of the screen a video has to fill before it counts as a full-screen player. */
+    private const val FULLSCREEN_PERCENT = 55
+
     fun collect(
         root: AccessibilityNodeInfo,
         packageName: String,
@@ -63,6 +66,19 @@ object SnapshotCollector {
                     val key = "class:$suffix"
                     viewIds += key
                     record(bounds, key, box, screen)
+
+                    // Geometry as evidence: a video filling the screen is a player, one sitting
+                    // in a row is a post. Signatures can ask for either without naming a single
+                    // container id, which is what stops them breaking every time Instagram
+                    // renames its views.
+                    val visible = box.intersect(screen).area
+                    val marker = if (visible * 100 >= screen.area * FULLSCREEN_PERCENT) {
+                        "video:fullscreen"
+                    } else {
+                        "video:inline"
+                    }
+                    viewIds += marker
+                    record(bounds, marker, box, screen)
                 }
             }
             if (descriptions.size < MAX_TEXT_ENTRIES) {

@@ -9,6 +9,7 @@ import com.antidoomscroller.ui.screens.AdultFilterScreen
 import com.antidoomscroller.ui.screens.AppDetailScreen
 import com.antidoomscroller.ui.screens.AppsScreen
 import com.antidoomscroller.ui.screens.DashboardScreen
+import com.antidoomscroller.ui.screens.DetectionReportScreen
 import com.antidoomscroller.ui.screens.DisableFilterScreen
 import com.antidoomscroller.ui.screens.MessagesScreen
 import com.antidoomscroller.ui.screens.ScheduleScreen
@@ -22,6 +23,7 @@ object Routes {
     const val DISABLE_FILTER = "adult-filter/disable"
     const val SCHEDULE = "schedule"
     const val ABOUT = "about"
+    const val DETECTION = "detection"
 
     fun appDetail(packageName: String): String = "apps/$packageName"
 }
@@ -68,7 +70,13 @@ fun AppNavHost() {
             ScheduleScreen(onBack = { navController.popBackStack() })
         }
         composable(Routes.ABOUT) {
-            AboutScreen(onBack = { navController.popBackStack() })
+            AboutScreen(
+                onBack = { navController.popBackStack() },
+                onOpenDetectionReport = { navController.navigate(Routes.DETECTION) },
+            )
+        }
+        composable(Routes.DETECTION) {
+            DetectionReportScreen(onBack = { navController.popBackStack() })
         }
     }
 }

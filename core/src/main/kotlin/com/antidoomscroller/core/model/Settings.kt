@@ -42,6 +42,7 @@ data class AppProfile(
      */
     val dmAllowanceEndsOnSwipe: Boolean = true,
     val antiScroll: AntiScrollSettings = AntiScrollSettings(),
+    val feedTime: FeedTimeSettings = FeedTimeSettings(),
 ) {
     fun actionFor(surface: FeedSurface): RuleAction =
         surfaceActions[surface.id] ?: DefaultProfiles.fallbackAction(packageName, surface)
@@ -88,6 +89,27 @@ data class AntiScrollSettings(
             Sensitivity.STRICT -> 60
             Sensitivity.CUSTOM -> customWindowSeconds.coerceAtLeast(5)
         }
+}
+
+/**
+ * A limit on time spent scrolling an ordinary feed, as opposed to a short-video one.
+ *
+ * The home feed is not something this app removes - it is something it will eventually ask you to
+ * put down. Past the limit the feed is covered where it stands, leaving the navigation bar and
+ * the back gesture alone, so leaving is the easy thing to do and carrying on is not.
+ */
+@Serializable
+data class FeedTimeSettings(
+    val enabled: Boolean = true,
+    val limitMinutes: Int = 5,
+    /** A gap longer than this is reading or being away, not scrolling. */
+    val idleGapSeconds: Int = 10,
+    /** How long away from the feed refills the budget. */
+    val resetAfterAwayMinutes: Int = 5,
+) {
+    val limitMs: Long get() = limitMinutes.coerceIn(1, 240) * 60_000L
+    val idleGapMs: Long get() = idleGapSeconds.coerceIn(2, 120) * 1_000L
+    val resetAfterAwayMs: Long get() = resetAfterAwayMinutes.coerceIn(1, 240) * 60_000L
 }
 
 @Serializable

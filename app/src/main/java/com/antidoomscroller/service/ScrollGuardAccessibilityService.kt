@@ -25,12 +25,15 @@ import com.antidoomscroller.core.messages.RenderedMessage
 import com.antidoomscroller.core.model.AppProfile
 import com.antidoomscroller.core.model.BlockStyle
 import com.antidoomscroller.core.model.EnforcementSettings
+import com.antidoomscroller.core.model.FeedTimeSettings
+import com.antidoomscroller.core.model.FeedSurface
 import com.antidoomscroller.core.model.GuardSettings
 import com.antidoomscroller.core.model.MessageKind
 import com.antidoomscroller.core.policy.BackOffBudget
 import com.antidoomscroller.core.policy.GuardDecision
 import com.antidoomscroller.core.policy.PolicyResolver
 import com.antidoomscroller.core.scroll.ScrollDetector
+import com.antidoomscroller.core.scroll.ScrollTimeTracker
 import com.antidoomscroller.core.scroll.ScrollVerdict
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +62,7 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
     private val trail = ContextTrail(maxAgeMs = CONTEXT_MAX_AGE_MS)
     private val resolver = PolicyResolver()
     private val scrollDetector = ScrollDetector()
+    private val feedTime = ScrollTimeTracker()
     private val messageBook = MessageBook()
     private val session = ShortVideoSession()
     private val handler = Handler(Looper.getMainLooper())
@@ -72,6 +76,7 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
     @Volatile private var scrollPass: ScrollPassState = ScrollPassState()
 
     private var backOff = BackOffBudget(attempts = 3, windowMs = 15_000)
+    @Volatile private var lastSurface: FeedSurface = FeedSurface.UNKNOWN
     private var lastEvaluationMs = 0L
     private var lastBackMs = 0L
     private var heartbeatScheduled = false
@@ -184,12 +189,18 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
             now = LocalDateTime.now(),
             scrollPassRunning = passRunning,
         )
+        DetectionLog.record(snapshot, classification)
+        lastSurface = classification.surface
+        if (classification.surface != FeedSurface.HOME_FEED) {
+            feedTime.onAwayFromFeed(now, profile.feedTime)
+        }
+
         when (decision) {
             is GuardDecision.Block -> enforceBlock(decision, profile, snapshot, now)
             is GuardDecision.Allow -> {
-                overlay.dismiss()
                 // Left the player under its own steam: the next visit starts with a full budget.
                 backOff.reset()
+                if (!coverFeedIfTimeIsUp(profile, snapshot, passRunning)) overlay.dismiss()
             }
         }
     }
@@ -277,6 +288,10 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
         val profile = settings.profileFor(packageName) ?: return
         if (!settings.masterEnabled || !profile.enabled) return
 
+        if (lastSurface == FeedSurface.HOME_FEED) {
+            feedTime.onScroll(SystemClock.uptimeMillis(), profile.feedTime)
+        }
+
         val verdict = scrollDetector.onScroll(packageName, profile.antiScroll, SystemClock.uptimeMillis())
         if (verdict !is ScrollVerdict.Interrupt) return
 
@@ -299,7 +314,38 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
         scrollDetector.onLeaveApp()
         backOff.reset()
         session.reset()
+        lastSurface = FeedSurface.UNKNOWN
+        feedTime.onAwayFromFeed(SystemClock.uptimeMillis(), FeedTimeSettings())
         updateHeartbeat(active = false)
+    }
+
+    /**
+     * Past the time limit the ordinary feed is covered where it stands.
+     *
+     * The feed is not a thing this app removes, so nothing is closed and nothing is navigated:
+     * the cover sits between the app's own bars, which leaves the navigation bar and the back
+     * gesture exactly as they were. Leaving is easy; carrying on is not.
+     */
+    private fun coverFeedIfTimeIsUp(
+        profile: AppProfile,
+        snapshot: ScreenSnapshot,
+        passRunning: Boolean,
+    ): Boolean {
+        if (passRunning) return false
+        if (lastSurface != FeedSurface.HOME_FEED) return false
+        if (!feedTime.isOverLimit(profile.feedTime)) return false
+
+        val signature = classifier.signatureFor(snapshot.packageName)
+        val area = MediaRegionResolver.contentArea(snapshot, signature, screenBounds())
+        if (area.isEmpty) return false
+
+        val rendered = messageBook.render(
+            settings = settings.messages,
+            kind = MessageKind.ANTI_SCROLL,
+            appLabel = profile.displayName,
+        )
+        overlay.showPatch(area, rendered.title, rendered.body)
+        return true
     }
 
     /**
