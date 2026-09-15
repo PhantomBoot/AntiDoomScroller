@@ -33,6 +33,12 @@ object DefaultSignatures {
             "reels_tray",
             "media_container",
             "video_container",
+            // Matched by widget class rather than id: whatever the container is called this
+            // release, the thing actually playing is a video surface, and that is what should be
+            // covered. See SnapshotCollector.
+            "class:textureview",
+            "class:surfaceview",
+            "class:videoview",
             "clips_viewer",
             "reels_viewer",
         ),
@@ -90,12 +96,28 @@ object DefaultSignatures {
                 noneViewId = listOf("profile_header"),
                 forbidContext = listOf(ContextTag.DM),
             ),
-            // Reels unit embedded in the main timeline.
+            // A reel playing inside the main timeline.
+            //
+            // "Reel by <name>" is the one marker that survives every rename, but on its own it
+            // also matches a profile grid and Explore, where the same text labels a static
+            // thumbnail. So it is used here and fenced off instead: not on a profile, not on
+            // Explore, and not while the full-screen player is up. What is left is a reel
+            // playing in the feed, which is precisely the thing this surface is about.
             SurfaceSignature(
                 surface = FeedSurface.SHORT_VIDEO_IN_HOME.id,
                 weight = 110,
-                allViewId = listOf("feed_recycler_view"),
                 anyViewId = listOf("clips_netego", "reels_tray", "clips_unit", "netego_carousel"),
+                anyContentDescription = listOf("reel by", "reel video", "audio by"),
+                noneViewId = listOf(
+                    "profile_header",
+                    "profile_grid",
+                    "explore_grid",
+                    "explore_recycler",
+                    "discovery_recycler",
+                    "clips_viewer",
+                    "clips_video_container",
+                ),
+                forbidContext = listOf(ContextTag.DM, ContextTag.EXPLORE, ContextTag.PROFILE),
             ),
             SurfaceSignature(
                 surface = FeedSurface.STORIES.id,

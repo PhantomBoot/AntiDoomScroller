@@ -101,6 +101,43 @@ class DetectionTest {
     }
 
     @Test
+    fun `a reel playing in the timeline is caught without any clips id`() {
+        // The screen from the bug report: a "Suggested for you" reel autoplaying in the home
+        // feed. No clips_* container is present - the unit ids this used to require were guesses
+        // that do not exist - so the reel label plus a playing video surface is the evidence.
+        val feedReel = instagramScreen(
+            ids = setOf("feed_recycler_view", "tab_bar", "row_feed_button_like", "class:textureview"),
+            descriptions = setOf("reel by annabutterz", "like", "comment", "share"),
+        )
+        assertEquals(FeedSurface.SHORT_VIDEO_IN_HOME, classifier.classify(feedReel, emptySet()).surface)
+    }
+
+    @Test
+    fun `the same label on a profile or explore still does not count`() {
+        // The guard that keeps the line above from re-breaking profiles and Explore.
+        val profile = instagramScreen(
+            ids = setOf("profile_header", "profile_tab", "tab_bar"),
+            descriptions = setOf("reel by alice", "reel by bob"),
+        )
+        assertFalse(classifier.classify(profile, emptySet()).surface.isShortVideo)
+
+        val explore = instagramScreen(
+            ids = setOf("explore_grid", "tab_bar"),
+            descriptions = setOf("reel by alice"),
+        )
+        assertEquals(FeedSurface.EXPLORE, classifier.classify(explore, emptySet()).surface)
+
+        // Context alone is enough even if the id guards miss.
+        val unknownProfile = instagramScreen(
+            ids = setOf("some_renamed_grid", "tab_bar"),
+            descriptions = setOf("reel by alice"),
+        )
+        assertFalse(
+            classifier.classify(unknownProfile, setOf(ContextTag.PROFILE)).surface.isShortVideo,
+        )
+    }
+
+    @Test
     fun `the reels player is still caught once it is actually open`() {
         assertEquals(
             FeedSurface.SHORT_VIDEO_FEED,

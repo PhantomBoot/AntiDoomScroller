@@ -102,6 +102,30 @@ class MediaRegionTest {
     }
 
     @Test
+    fun `the playing video surface is covered when no container id is recognised`() {
+        // Instagram renames its containers freely, but the thing playing is still a video
+        // surface, and that is what the box has to land on.
+        val region = requireNotNull(
+            MediaRegionResolver.resolve(
+                snapshot(
+                    mapOf(
+                        "feed_recycler_view" to ScreenRect(0, 220, 1080, 2250),
+                        "row_feed_button_like" to ScreenRect(40, 1900, 200, 1980),
+                        "class:textureview" to ScreenRect(0, 300, 1080, 1860),
+                        "tab_bar" to ScreenRect(0, 2250, 1080, 2400),
+                    ),
+                ),
+                instagram,
+                screen,
+            ),
+        )
+
+        assertEquals(ScreenRect(0, 300, 1080, 1860), region)
+        assertTrue("the post header above must stay visible", region.top > 220)
+        assertTrue("the tab bar must stay usable", region.bottom < 2250)
+    }
+
+    @Test
     fun `thumbnails and buttons are never mistaken for the video`() {
         val region = MediaRegionResolver.resolve(
             snapshot(mapOf("clips_video_container" to ScreenRect(40, 40, 200, 200))),

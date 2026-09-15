@@ -22,6 +22,9 @@ object SnapshotCollector {
     private const val MAX_TEXT_ENTRIES = 48
     private const val MAX_TEXT_LENGTH = 64
 
+    /** Widget classes that mean "a video is playing here", whatever the app calls the view. */
+    private val VIDEO_SURFACE_CLASSES = listOf("textureview", "surfaceview", "videoview")
+
     fun collect(
         root: AccessibilityNodeInfo,
         packageName: String,
@@ -42,21 +45,26 @@ object SnapshotCollector {
             val (node, depth) = queue.removeFirst()
             visited++
 
+            val box = Rect().also(node::getBoundsInScreen).toScreenRect()
+
             ScreenSnapshot.normaliseViewId(node.viewIdResourceName)?.let { id ->
                 viewIds += id
-                val box = Rect().also(node::getBoundsInScreen).toScreenRect()
-                if (!box.isEmpty) {
-                    val existing = bounds[id]
-                    // A list recycles the same id for rows above and below the viewport; keep the
-                    // one the user can actually see.
-                    if (existing == null ||
-                        box.intersect(screen).area > existing.intersect(screen).area
-                    ) {
-                        bounds[id] = box
-                    }
+                record(bounds, id, box, screen)
+            }
+
+            node.className?.toString()?.lowercase()?.let { className ->
+                classNames += className
+                // A video is a video whatever its container is called this release, so the
+                // playing surface is recorded under a synthetic id of its own. Signatures and
+                // the region resolver can then ask for "class:textureview" exactly as they would
+                // ask for any other id, which keeps the cover landing on the video even when the
+                // app renames everything around it.
+                VIDEO_SURFACE_CLASSES.firstOrNull { className.endsWith(it) }?.let { suffix ->
+                    val key = "class:$suffix"
+                    viewIds += key
+                    record(bounds, key, box, screen)
                 }
             }
-            node.className?.toString()?.lowercase()?.let(classNames::add)
             if (descriptions.size < MAX_TEXT_ENTRIES) {
                 node.contentDescription?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let {
                     descriptions += it.take(MAX_TEXT_LENGTH).lowercase()
@@ -116,6 +124,20 @@ object SnapshotCollector {
 
         drain(queue.toList(), root)
         return found
+    }
+
+    /** A list recycles ids across rows; keep whichever instance the user can actually see. */
+    private fun record(
+        bounds: MutableMap<String, ScreenRect>,
+        key: String,
+        box: ScreenRect,
+        screen: ScreenRect,
+    ) {
+        if (box.isEmpty) return
+        val existing = bounds[key]
+        if (existing == null || box.intersect(screen).area > existing.intersect(screen).area) {
+            bounds[key] = box
+        }
     }
 
     private fun Rect.toScreenRect(): ScreenRect = ScreenRect(left, top, right, bottom)
