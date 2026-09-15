@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AntiDoomScroller</string>
+    <string name="accessibility_service_label">AntiDoomScroller feed guard</string>
+    <string name="accessibility_service_description">Reads the screen of the apps you choose so it can recognise Reels, Shorts and other short-video feeds and close them. Everything it reads is examined on this device and is never stored or sent anywhere.</string>
+
+    <string name="channel_blocks_name">Blocks</string>
+    <string name="channel_blocks_description">Shown when a feed is blocked, if you turn these on.</string>
+    <string name="channel_nudges_name">Scroll reminders</string>
+    <string name="channel_nudges_description">Your own reminder messages, shown during a long scroll.</string>
+    <string name="channel_filter_name">Content filter</string>
+    <string name="channel_filter_description">Shows that the adult content filter is running.</string>
+
+    <string name="filter_running">Adult content filter is on</string>
+    <string name="filter_running_detail">Blocking in every browser on this phone.</string>
+</resources>
