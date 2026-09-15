@@ -100,7 +100,7 @@ class LockTest {
 
     @Test
     fun `full disable flow takes the wait and then the challenge`() {
-        var state = LockController.requestDisable(LockState(), reading(0.0, 0.0), cooldownHours = 48)
+        var state = LockController.requestDisable(LockState(), reading(0.0, 0.0), cooldownMinutes = 48 * 60)
         assertEquals(LockPhase.COOLING, state.phase)
 
         state = LockController.tick(state, reading(24.0, 24.0)) { 42L }
@@ -135,7 +135,7 @@ class LockTest {
 
     @Test
     fun `a wrong answer restarts the set and starts a penalty`() {
-        var state = LockController.requestDisable(LockState(), reading(0.0, 0.0), cooldownHours = 48)
+        var state = LockController.requestDisable(LockState(), reading(0.0, 0.0), cooldownMinutes = 48 * 60)
         state = LockController.tick(state, reading(48.0, 48.0)) { 7L }
         val firstProblem = requireNotNull(LockController.challengeFor(state, settings)).problems.first()
         state = (LockController.submitAnswer(state, firstProblem.answer.toString(), settings) as AnswerResult.Accepted).state
@@ -154,7 +154,7 @@ class LockTest {
 
     @Test
     fun `the penalty is measured in monotonic time`() {
-        var state = LockController.requestDisable(LockState(), reading(0.0, 0.0), cooldownHours = 48)
+        var state = LockController.requestDisable(LockState(), reading(0.0, 0.0), cooldownMinutes = 48 * 60)
         state = LockController.tick(state, reading(48.0, 48.0)) { 11L }
         state = (LockController.submitAnswer(state, "wrong", settings) as AnswerResult.Rejected).state
         assertTrue(LockController.isPenaltyActive(state))
@@ -166,7 +166,7 @@ class LockTest {
 
     @Test
     fun `turning the filter back on is instant at every stage`() {
-        var state = LockController.requestDisable(LockState(), reading(0.0, 0.0), cooldownHours = 48)
+        var state = LockController.requestDisable(LockState(), reading(0.0, 0.0), cooldownMinutes = 48 * 60)
         assertEquals(LockPhase.ARMED, LockController.cancelRequest(state).phase)
 
         state = LockController.tick(state, reading(48.0, 48.0)) { 5L }
@@ -179,18 +179,44 @@ class LockTest {
 
     @Test
     fun `a second disable request cannot restart or shortcut the wait`() {
-        val state = LockController.requestDisable(LockState(), reading(0.0, 0.0), cooldownHours = 48)
+        val state = LockController.requestDisable(LockState(), reading(0.0, 0.0), cooldownMinutes = 48 * 60)
         val ticked = LockController.tick(state, reading(20.0, 20.0))
-        val again = LockController.requestDisable(ticked, reading(20.0, 20.0), cooldownHours = 1)
+        val again = LockController.requestDisable(ticked, reading(20.0, 20.0), cooldownMinutes = 60)
         assertEquals(20 * hour, again.progress.accruedMs)
         assertEquals(48 * hour, again.requiredMs)
     }
 
     @Test
     fun `no challenge is available before the wait is served`() {
-        val state = LockController.requestDisable(LockState(), reading(0.0, 0.0), cooldownHours = 48)
+        val state = LockController.requestDisable(LockState(), reading(0.0, 0.0), cooldownMinutes = 48 * 60)
         assertEquals(null, LockController.challengeFor(state, settings))
         assertTrue(LockController.submitAnswer(state, "0", settings) is AnswerResult.NotReady)
+    }
+
+    @Test
+    fun `the master switch gate is the same machinery at ten minutes`() {
+        val gate = com.antidoomscroller.core.model.MasterLockSettings()
+        assertTrue("the gate is on out of the box", gate.enabled)
+        assertEquals(10, gate.cooldownMinutes)
+
+        var state = LockController.requestDisable(LockState(), reading(0.0, 0.0), gate.cooldownMinutes)
+        assertEquals(10 * 60_000L, state.requiredMs)
+
+        // Nine minutes in, still waiting.
+        state = LockController.tick(state, TimeReading(9 * 60_000, 9 * 60_000)) { 3L }
+        assertEquals(LockPhase.COOLING, state.phase)
+
+        state = LockController.tick(state, TimeReading(10 * 60_000, 10 * 60_000)) { 3L }
+        assertEquals(LockPhase.CHALLENGE, state.phase)
+
+        val challenge = requireNotNull(LockController.challengeFor(state, gate.challenge))
+        assertEquals(3, challenge.problems.size)
+        challenge.problems.forEach { assertTrue(it.prompt.isNotBlank()) }
+
+        // And the clock is no more helpful here than it is on the filter.
+        val doctored = LockController.requestDisable(LockState(), reading(0.0, 0.0), gate.cooldownMinutes)
+        val jumped = LockController.tick(doctored, TimeReading(60 * 60_000, 30_000)) { 3L }
+        assertEquals(LockPhase.COOLING, jumped.phase)
     }
 
     // ---- challenge generation ------------------------------------------------

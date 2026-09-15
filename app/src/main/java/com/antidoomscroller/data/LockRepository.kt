@@ -20,21 +20,24 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 
 /**
- * Owns the adult filter's on/off state and the 48 hour cooldown in front of turning it off.
+ * A wait-then-challenge gate in front of switching something off.
  *
- * Every read pairs the wall clock with monotonic uptime, which is what makes winding the clock
- * forward useless. See [com.antidoomscroller.core.lock.CooldownProgress].
+ * Used twice, over separate stored state: once for the adult filter's 48 hours, once for the ten
+ * minutes in front of the master switch. Every read pairs the wall clock with monotonic uptime,
+ * which is what makes winding the clock forward useless. See
+ * [com.antidoomscroller.core.lock.CooldownProgress].
  */
 class LockRepository(
     private val context: Context,
     private val scope: CoroutineScope,
+    private val key: androidx.datastore.preferences.core.Preferences.Key<String>,
 ) {
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val writeLock = Mutex()
 
     val state: StateFlow<LockState> = context.lockDataStore.data
-        .map { preferences -> decode(preferences[PrefKeys.LOCK_STATE]) }
+        .map { preferences -> decode(preferences[key]) }
         .stateIn(scope, SharingStarted.Eagerly, LockState())
 
     fun now(): TimeReading = TimeReading(System.currentTimeMillis(), SystemClock.elapsedRealtime())
@@ -42,8 +45,8 @@ class LockRepository(
     /** Called on a timer, on app open and on boot. Moves the cooldown forward and nothing else. */
     suspend fun checkpoint(): LockState = mutate { LockController.tick(it, now()) }
 
-    suspend fun requestDisable(cooldownHours: Int): LockState =
-        mutate { LockController.tick(LockController.requestDisable(it, now(), cooldownHours), now()) }
+    suspend fun requestDisable(cooldownMinutes: Int): LockState =
+        mutate { LockController.tick(LockController.requestDisable(it, now(), cooldownMinutes), now()) }
 
     /** Re-locking is free at every stage; that asymmetry is the whole point. */
     suspend fun cancelDisableRequest(): LockState = mutate { LockController.cancelRequest(it) }

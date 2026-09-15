@@ -182,12 +182,9 @@ object DefaultSignatures {
             ContextTag.HOME to listOf("browse_fragment", "results", "pivot_bar"),
         ),
         surfaces = listOf(
-            SurfaceSignature(
-                surface = FeedSurface.SHORT_VIDEO_IN_EXPLORE.id,
-                weight = 140,
-                anyViewId = listOf("reel_recycler", "reel_player_page_container", "reel_watch_fragment_root_view"),
-                requireContext = listOf(ContextTag.SEARCH),
-            ),
+            // No search variant: opening a Short from search lands in the same player, and it
+            // answers to the Shorts switch like any other. A surface of its own would have been a
+            // switch governing nothing.
             // The Shorts player: vertically paged reel_recycler is the stable marker across
             // versions.
             //

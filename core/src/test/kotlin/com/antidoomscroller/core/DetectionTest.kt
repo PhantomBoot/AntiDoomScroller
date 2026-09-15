@@ -6,6 +6,7 @@ import com.antidoomscroller.core.detect.ScreenSnapshot
 import com.antidoomscroller.core.detect.SignaturePack
 import com.antidoomscroller.core.detect.SurfaceClassifier
 import com.antidoomscroller.core.model.ContextTag
+import com.antidoomscroller.core.model.DefaultProfiles
 import com.antidoomscroller.core.model.FeedSurface
 import com.antidoomscroller.core.model.SupportedApps
 import org.junit.Assert.assertEquals
@@ -222,9 +223,15 @@ class DetectionTest {
     }
 
     @Test
-    fun `youtube shorts opened from search is its own surface`() {
+    fun `a short opened from youtube search answers to the shorts switch`() {
+        // Search lists videos rather than playing them, so there is no separate surface for it:
+        // the player is the player wherever it was opened from.
         val result = classifier.classify(youtube(ids = setOf("reel_recycler")), setOf(ContextTag.SEARCH))
-        assertEquals(FeedSurface.SHORT_VIDEO_IN_EXPLORE, result.surface)
+        assertEquals(FeedSurface.SHORT_VIDEO_FEED, result.surface)
+        assertEquals(
+            listOf(FeedSurface.SHORT_VIDEO_FEED, FeedSurface.SHORT_VIDEO_IN_HOME),
+            DefaultProfiles.configurableSurfaces(SupportedApps.YOUTUBE),
+        )
     }
 
     @Test

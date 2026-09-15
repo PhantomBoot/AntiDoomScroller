@@ -11,6 +11,7 @@ import com.antidoomscroller.ui.screens.AppsScreen
 import com.antidoomscroller.ui.screens.DashboardScreen
 import com.antidoomscroller.ui.screens.DetectionReportScreen
 import com.antidoomscroller.ui.screens.DisableFilterScreen
+import com.antidoomscroller.ui.screens.DisableGuardScreen
 import com.antidoomscroller.ui.screens.MessagesScreen
 import com.antidoomscroller.ui.screens.ScheduleScreen
 
@@ -21,6 +22,7 @@ object Routes {
     const val MESSAGES = "messages"
     const val ADULT_FILTER = "adult-filter"
     const val DISABLE_FILTER = "adult-filter/disable"
+    const val DISABLE_GUARD = "guard/disable"
     const val SCHEDULE = "schedule"
     const val ABOUT = "about"
     const val DETECTION = "detection"
@@ -40,6 +42,7 @@ fun AppNavHost() {
                 onOpenAdultFilter = { navController.navigate(Routes.ADULT_FILTER) },
                 onOpenSchedule = { navController.navigate(Routes.SCHEDULE) },
                 onOpenAbout = { navController.navigate(Routes.ABOUT) },
+                onOpenDisableGuard = { navController.navigate(Routes.DISABLE_GUARD) },
             )
         }
         composable(Routes.APPS) {
@@ -62,6 +65,9 @@ fun AppNavHost() {
                 onBack = { navController.popBackStack() },
                 onOpenDisableFlow = { navController.navigate(Routes.DISABLE_FILTER) },
             )
+        }
+        composable(Routes.DISABLE_GUARD) {
+            DisableGuardScreen(onBack = { navController.popBackStack() })
         }
         composable(Routes.DISABLE_FILTER) {
             DisableFilterScreen(onBack = { navController.popBackStack() })

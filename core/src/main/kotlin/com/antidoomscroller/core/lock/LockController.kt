@@ -60,14 +60,14 @@ object LockController {
     fun requestDisable(
         state: LockState,
         now: TimeReading,
-        cooldownHours: Int,
+        cooldownMinutes: Int,
     ): LockState {
         if (state.phase == LockPhase.DISABLED) return state
         if (state.phase != LockPhase.ARMED) return state
         return state.copy(
             phase = LockPhase.COOLING,
             progress = CooldownProgress.start(now),
-            requiredMs = cooldownHours.coerceIn(1, 14 * 24) * 60L * 60L * 1000L,
+            requiredMs = cooldownMinutes.coerceIn(1, 14 * 24 * 60) * 60L * 1000L,
             requestedAtWallMs = now.wallMs,
             challengeSeed = 0,
             solvedCount = 0,

@@ -3,6 +3,7 @@ package com.antidoomscroller
 import android.content.Context
 import com.antidoomscroller.data.BlocklistRepository
 import com.antidoomscroller.data.LockRepository
+import com.antidoomscroller.data.PrefKeys
 import com.antidoomscroller.data.ScrollPassRepository
 import com.antidoomscroller.data.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
@@ -21,8 +22,13 @@ class AppContainer(context: Context) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     val settingsRepository: SettingsRepository by lazy { SettingsRepository(applicationContext, scope) }
-    val lockRepository: LockRepository by lazy { LockRepository(applicationContext, scope) }
+    val lockRepository: LockRepository by lazy { LockRepository(applicationContext, scope, PrefKeys.LOCK_STATE) }
     val scrollPassRepository: ScrollPassRepository by lazy { ScrollPassRepository(applicationContext, scope) }
+
+    /** The gate in front of the master switch, kept apart from the adult filter's own. */
+    val masterLockRepository: LockRepository by lazy {
+        LockRepository(applicationContext, scope, PrefKeys.MASTER_LOCK)
+    }
     val blocklistRepository: BlocklistRepository by lazy {
         BlocklistRepository(applicationContext, scope, settingsRepository)
     }

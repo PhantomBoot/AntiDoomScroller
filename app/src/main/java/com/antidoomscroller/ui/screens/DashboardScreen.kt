@@ -44,6 +44,7 @@ fun DashboardScreen(
     onOpenAdultFilter: () -> Unit,
     onOpenSchedule: () -> Unit,
     onOpenAbout: () -> Unit,
+    onOpenDisableGuard: () -> Unit,
 ) {
     val container = LocalContainer.current
     val settings by container.settingsRepository.settings.collectAsStateWithLifecycle()
@@ -62,6 +63,7 @@ fun DashboardScreen(
 
     val guardedApps = settings.profiles.count { it.enabled }
     val scrollPass by container.scrollPassRepository.state.collectAsStateWithLifecycle()
+    val masterLock by container.masterLockRepository.state.collectAsStateWithLifecycle()
 
     // The phase is projected from stored progress, so it needs re-reading on a timer rather than
     // only when something is written.
@@ -145,11 +147,43 @@ fun DashboardScreen(
                 Spacer(Modifier.height(8.dp))
                 SwitchRow(
                     title = "Guard short-video feeds",
-                    description = "The master switch for Reels, Shorts and the rest.",
+                    description = if (settings.masterLock.enabled) {
+                        "The master switch. Turning it off takes " +
+                            "${settings.masterLock.cooldownMinutes} minutes and a set of problems."
+                    } else {
+                        "The master switch for Reels, Shorts and the rest."
+                    },
                     checked = settings.masterEnabled,
                     onCheckedChange = { enabled ->
+                        when {
+                            // Turning the guard on is always instant.
+                            enabled -> scope.launch {
+                                container.settingsRepository.update { it.copy(masterEnabled = true) }
+                                container.masterLockRepository.rearm()
+                            }
+                            // Turning it off is the one thing that costs something.
+                            settings.masterLock.enabled -> onOpenDisableGuard()
+                            else -> scope.launch {
+                                container.settingsRepository.update { it.copy(masterEnabled = false) }
+                            }
+                        }
+                    },
+                )
+                SwitchRow(
+                    title = "Make turning it off cost something",
+                    description = if (masterLock.phase == LockPhase.DISABLED || !settings.masterLock.enabled) {
+                        "A wait and a set of problems in front of the master switch."
+                    } else {
+                        "Locked on while the guard is running - turn the guard off first."
+                    },
+                    checked = settings.masterLock.enabled,
+                    // Removing the gate while it is holding would be a way straight past it.
+                    enabled = !settings.masterLock.enabled || masterLock.phase == LockPhase.DISABLED,
+                    onCheckedChange = { required ->
                         scope.launch {
-                            container.settingsRepository.update { it.copy(masterEnabled = enabled) }
+                            container.settingsRepository.update {
+                                it.copy(masterLock = it.masterLock.copy(enabled = required))
+                            }
                         }
                     },
                 )
@@ -188,6 +222,19 @@ fun DashboardScreen(
                             Text("Available again in ${Durations.format(passRemainingMs)}")
                         }
                     }
+                }
+            }
+
+            if (masterLock.phase == LockPhase.COOLING || masterLock.phase == LockPhase.CHALLENGE) {
+                SectionCard(
+                    title = "You asked to turn the guard off",
+                    subtitle = if (masterLock.phase == LockPhase.COOLING) {
+                        "The wait is running. Feeds stay guarded until it is served."
+                    } else {
+                        "The wait is served. The problems are the last step."
+                    },
+                ) {
+                    Button(onClick = onOpenDisableGuard) { Text("Open") }
                 }
             }
 

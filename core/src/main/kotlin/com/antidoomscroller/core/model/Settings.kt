@@ -186,6 +186,23 @@ data class BreakWindow(
 }
 
 /**
+ * A wait and a set of problems in front of turning the whole guard off.
+ *
+ * Without it the master switch is the one tap that undoes everything else, which makes every
+ * other piece of friction in the app decorative. Turning the guard back *on* is always instant,
+ * and the wait is short enough to sit through on purpose and long enough to outlast the urge.
+ */
+@Serializable
+data class MasterLockSettings(
+    val enabled: Boolean = true,
+    val cooldownMinutes: Int = 10,
+    val challenge: ChallengeSettings = ChallengeSettings(
+        problemCount = 3,
+        difficulty = ChallengeDifficulty.HARD,
+    ),
+)
+
+/**
  * The rationed escape hatch: one run of unblocked scrolling, then a long wait.
  *
  * Separate from [ScheduleSettings] because a scheduled break is a decision made in advance and
@@ -292,6 +309,7 @@ data class GuardSettings(
     val messages: MessageSettings = MessageSettings(),
     val schedule: ScheduleSettings = ScheduleSettings(),
     val scrollPass: ScrollPassSettings = ScrollPassSettings(),
+    val masterLock: MasterLockSettings = MasterLockSettings(),
     val strictMode: StrictModeSettings = StrictModeSettings(),
     val adultFilter: AdultFilterSettings = AdultFilterSettings(),
     val enforcement: EnforcementSettings = EnforcementSettings(),

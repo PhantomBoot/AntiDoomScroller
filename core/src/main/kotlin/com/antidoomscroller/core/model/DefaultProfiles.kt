@@ -42,7 +42,6 @@ object DefaultProfiles {
             surfaceActions = mapOf(
                 FeedSurface.SHORT_VIDEO_FEED.id to RuleAction.BLOCK,
                 FeedSurface.SHORT_VIDEO_IN_HOME.id to RuleAction.BLOCK,
-                FeedSurface.SHORT_VIDEO_IN_EXPLORE.id to RuleAction.BLOCK,
             ),
         ),
         AppProfile(
@@ -130,10 +129,11 @@ object DefaultProfiles {
             FeedSurface.STORIES,
         )
 
+        // Two switches, because YouTube has two places short video appears. Search results list
+        // videos rather than playing them, so an Explore switch there governed nothing.
         SupportedApps.YOUTUBE -> listOf(
             FeedSurface.SHORT_VIDEO_FEED,
             FeedSurface.SHORT_VIDEO_IN_HOME,
-            FeedSurface.SHORT_VIDEO_IN_EXPLORE,
         )
 
         else -> listOf(
