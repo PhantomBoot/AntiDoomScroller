@@ -26,6 +26,10 @@ jobs:
 
       - name: Set up the Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # The action's default package set includes the long-obsolete "tools" package, which
+          # no longer resolves; ask for exactly what this build needs instead.
+          packages: "platform-tools platforms;android-35 build-tools;35.0.0"
 
       - name: Cache Gradle
         uses: actions/cache@v4
@@ -63,8 +67,10 @@ jobs:
             --title "AntiDoomScroller ${GITHUB_REF_NAME}" \
             --notes "Install on your phone: download antidoomscroller.apk below, open it, and allow installing from this source when Android asks."
 
-      - name: Publish the latest build from the default branch
-        if: github.ref == 'refs/heads/main'
+      # One stable download link that always points at the newest build, so the APK can be
+      # fetched on a phone without signing in to GitHub.
+      - name: Publish the latest build
+        if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -72,4 +78,5 @@ jobs:
           gh release create latest dist/antidoomscroller.apk \
             --title "Latest build" \
             --prerelease \
-            --notes "Rebuilt from main on every push. Download antidoomscroller.apk below and open it on your phone."
+            --target "${GITHUB_SHA}" \
+            --notes "Built from \`${GITHUB_REF_NAME}\` at \`${GITHUB_SHA:0:7}\`. Download antidoomscroller.apk below, open it on your phone, and allow installing from that source when Android asks."
