@@ -52,9 +52,12 @@ class ContentFilterVpnService : VpnService() {
             container.blocklistRepository.ruleset.collectLatest { engine.matcher = it.matcher }
         }
         scope.launch {
+            // Only mirror settings here. The enabled flag is not a stop signal: the settings flow
+            // opens on its defaults before the stored file is read, and acting on that would tear
+            // the tunnel down a moment after starting it. Stopping is driven by the lock below,
+            // which is the only thing that can legitimately turn the filter off.
             container.settingsRepository.settings.collectLatest { settings ->
                 engine.responseMode = settings.adultFilter.responseMode
-                if (!settings.adultFilter.enabled) stopFilter()
             }
         }
         scope.launch {
@@ -211,6 +214,17 @@ class ContentFilterVpnService : VpnService() {
         fun stop(context: Context) {
             val intent = Intent(context, ContentFilterVpnService::class.java).setAction(ACTION_STOP)
             context.startService(intent)
+        }
+
+        /**
+         * Brings the tunnel back if it should be running and is not - after a force stop, say.
+         * Does nothing when VPN permission has not been granted yet, so it can never surprise the
+         * user with a consent dialog.
+         */
+        fun startIfPermitted(context: Context) {
+            if (VpnService.prepare(context) != null) return
+            if (statusState.value.running) return
+            start(context)
         }
 
         /** Rebuilds a matcher for callers that need one before the service is up. */

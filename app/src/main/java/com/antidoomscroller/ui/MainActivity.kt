@@ -45,7 +45,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        lifecycleScope.launch { AppContainer.from(this@MainActivity).lockRepository.checkpoint() }
+        val container = AppContainer.from(this)
+        lifecycleScope.launch {
+            container.lockRepository.checkpoint()
+            val settings = container.settingsRepository.awaitLoaded()
+            if (settings.adultFilter.enabled && container.lockRepository.isFilterActive()) {
+                ContentFilterVpnService.startIfPermitted(this@MainActivity)
+            }
+        }
     }
 
     /** Asks for VPN permission if needed, then brings the filter up. */
