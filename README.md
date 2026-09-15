@@ -16,8 +16,11 @@ Everything happens on the device. No account, no server, no analytics.
 ## Install it on your phone
 
 1. Open the [**Releases** page](https://github.com/PhantomBoot/AntiDoomScroller/releases) on your
-   phone.
-2. Download `antidoomscroller.apk` from the latest release.
+   phone. This repository is private, so sign in to GitHub in your phone's browser first —
+   otherwise the download link returns "not found". (Making the repository public removes that
+   step, at the cost of the code being public too.)
+2. Download `antidoomscroller.apk` from the release marked **Latest build**. It is rebuilt on every
+   push, so that link always points at the newest version.
 3. Open the downloaded file. Android will ask whether to allow installing apps from your browser —
    say yes, then install.
 4. Open AntiDoomScroller and follow the two setup steps below.

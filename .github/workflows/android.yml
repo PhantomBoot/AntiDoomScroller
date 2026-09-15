@@ -10,6 +10,12 @@ on:
 permissions:
   contents: write
 
+# Two runs finishing together would both delete and recreate the "latest" release, leaving a
+# window where the download link 404s. One run per branch, newest wins.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Test and build
