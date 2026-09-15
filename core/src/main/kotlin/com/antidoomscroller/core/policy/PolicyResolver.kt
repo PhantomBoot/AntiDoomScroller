@@ -1,6 +1,8 @@
 package com.antidoomscroller.core.policy
 
 import com.antidoomscroller.core.detect.Classification
+import com.antidoomscroller.core.model.AppProfile
+import com.antidoomscroller.core.model.BlockStyle
 import com.antidoomscroller.core.model.FeedSurface
 import com.antidoomscroller.core.model.GuardSettings
 import com.antidoomscroller.core.model.RuleAction
@@ -55,33 +57,49 @@ class PolicyResolver {
             RuleAction.BLOCK -> GuardDecision.Block(
                 packageName = packageName,
                 surface = classification.surface,
-                style = profile.blockStyle,
+                style = styleFor(profile, classification.surface),
                 evidence = classification.evidence,
             )
         }
     }
+
+    companion object {
+        /**
+         * How a blocked surface should be taken away.
+         *
+         * The app's choice applies to full-screen players, where backing out lands on the
+         * previous tab. A short-video unit embedded in an ordinary feed is always covered
+         * instead: backing out of it would mean backing out of the home feed, which is not what
+         * was asked for.
+         */
+        fun styleFor(profile: AppProfile, surface: FeedSurface): BlockStyle =
+            if (surface == FeedSurface.SHORT_VIDEO_IN_HOME) BlockStyle.COVER else profile.blockStyle
+    }
 }
 
 /**
- * Detects the "app re-opens the blocked screen the moment we press back" loop and escalates to
- * leaving the app entirely.
+ * Counts how many times backing out of a screen has been tried, so the guard can stop.
+ *
+ * Some apps put the short-video player straight back when you leave it. Pressing back forever
+ * would walk the user out of the app entirely, so the budget runs out and the caller falls back
+ * to covering the video instead.
  */
-class BlockLoopTracker(
-    private val escapeCount: Int,
+class BackOffBudget(
+    private val attempts: Int,
     private val windowMs: Long,
 ) {
     private val recent = ArrayDeque<Long>()
     private var lastKey: String? = null
 
-    /** Returns true when this block should escalate to "leave the app". */
-    fun onBlock(key: String, nowMs: Long): Boolean {
+    /** Records a back press. Returns true once the budget for this screen is spent. */
+    fun onBackPress(key: String, nowMs: Long): Boolean {
         if (key != lastKey) {
             recent.clear()
             lastKey = key
         }
         while (recent.isNotEmpty() && nowMs - recent.first() > windowMs) recent.removeFirst()
         recent.addLast(nowMs)
-        return recent.size >= escapeCount
+        return recent.size >= attempts
     }
 
     fun reset() {

@@ -24,6 +24,12 @@ data class SurfaceSignature(
     val noneViewId: List<String> = emptyList(),
     val anyContentDescription: List<String> = emptyList(),
     val anyText: List<String> = emptyList(),
+    /**
+     * Normally one of the `any*` groups hitting is enough. Set this when a surface is only itself
+     * when several independent things are true at once - a Shorts shelf, for instance, is a shelf
+     * id *and* a "shorts" label, because the shelf id alone is every other shelf on the page.
+     */
+    val requireAllMatchers: Boolean = false,
     /** Context tags (see [com.antidoomscroller.core.model.ContextTag]) that must be active. */
     val requireContext: List<String> = emptyList(),
     /** Context tags that disqualify this signature. */

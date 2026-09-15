@@ -71,15 +71,51 @@ class DetectionTest {
     }
 
     @Test
-    fun `youtube shorts player is detected by id and by description`() {
-        assertEquals(
-            FeedSurface.SHORT_VIDEO_FEED,
-            classifier.classify(youtube(ids = setOf("reel_recycler")), emptySet()).surface,
+    fun `youtube shorts player is detected by its player ids`() {
+        listOf("reel_recycler", "reel_player_page_container", "shorts_video_container").forEach { id ->
+            assertEquals(
+                "$id should be the shorts player",
+                FeedSurface.SHORT_VIDEO_FEED,
+                classifier.classify(youtube(ids = setOf(id)), emptySet()).surface,
+            )
+        }
+    }
+
+    @Test
+    fun `the shorts tab in youtube's navigation bar does not make the whole app a feed`() {
+        // Every YouTube screen carries a navigation tab described as "Shorts". Matching on that
+        // meant the home feed, search and the long-form watch page all read as a short-video
+        // feed, and the guard walked the user out of the app.
+        val homeFeed = youtube(
+            ids = setOf("browse_fragment", "pivot_bar", "results"),
+            descriptions = setOf("shorts", "home", "subscriptions", "you"),
         )
-        assertEquals(
-            FeedSurface.SHORT_VIDEO_FEED,
-            classifier.classify(youtube(descriptions = setOf("shorts")), emptySet()).surface,
+        assertEquals(FeedSurface.HOME_FEED, classifier.classify(homeFeed, emptySet()).surface)
+
+        val watchPage = youtube(
+            ids = setOf("watch_player", "player_control_play_pause_replay_button", "pivot_bar"),
+            descriptions = setOf("shorts", "pause video", "next video"),
         )
+        val watched = classifier.classify(watchPage, emptySet())
+        assertFalse(
+            "long-form video must never be classified as short video",
+            watched.surface.isShortVideo,
+        )
+
+        val searchResults = youtube(
+            ids = setOf("results", "pivot_bar"),
+            descriptions = setOf("shorts", "search"),
+        )
+        assertFalse(classifier.classify(searchResults, emptySet()).surface.isShortVideo)
+    }
+
+    @Test
+    fun `the shorts shelf on the home tab is its own surface`() {
+        val result = classifier.classify(
+            youtube(ids = setOf("browse_fragment", "shorts_shelf"), descriptions = setOf("shorts")),
+            emptySet(),
+        )
+        assertEquals(FeedSurface.SHORT_VIDEO_IN_HOME, result.surface)
     }
 
     @Test

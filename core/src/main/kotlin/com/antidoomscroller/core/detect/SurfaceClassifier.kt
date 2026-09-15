@@ -58,6 +58,14 @@ class SurfaceClassifier(private var pack: SignaturePack) {
     }
 
     /** Returns the matched evidence, or null when the signature does not apply. */
+    /**
+     * Returns the matched evidence, or null when the signature does not apply.
+     *
+     * `allViewId` is a precondition, not evidence: a signature that names the list a reels unit
+     * sits in must still find the unit itself, or it would match every screen showing that list -
+     * which is how ordinary photo posts ended up being covered. So a positive hit has to come
+     * from one of the `any*` groups whenever any of them is specified.
+     */
     private fun match(
         signature: SurfaceSignature,
         snapshot: ScreenSnapshot,
@@ -74,40 +82,26 @@ class SurfaceClassifier(private var pack: SignaturePack) {
             evidence += "id~$fragment"
         }
 
-        var positiveMatched = signature.allViewId.isNotEmpty()
+        val viewIdHit = signature.anyViewId.firstOrNull { snapshot.hasViewIdContaining(it) }
+        val descriptionHit = signature.anyContentDescription.firstOrNull { snapshot.hasDescriptionContaining(it) }
+        val textHit = signature.anyText.firstOrNull { snapshot.hasTextContaining(it) }
 
-        if (signature.anyViewId.isNotEmpty()) {
-            val hit = signature.anyViewId.firstOrNull { snapshot.hasViewIdContaining(it) }
-            if (hit != null) {
-                evidence += "id~$hit"
-                positiveMatched = true
-            } else if (signature.anyContentDescription.isEmpty() && signature.anyText.isEmpty()) {
-                return null
-            }
+        val groups = listOf(
+            signature.anyViewId to viewIdHit?.let { "id~$it" },
+            signature.anyContentDescription to descriptionHit?.let { "desc~$it" },
+            signature.anyText to textHit?.let { "text~$it" },
+        ).filter { (fragments, _) -> fragments.isNotEmpty() }
+
+        if (groups.isEmpty()) {
+            // Nothing but preconditions: the allViewId list is itself the identification.
+            if (signature.allViewId.isEmpty()) return null
+        } else {
+            val hits = groups.mapNotNull { (_, hit) -> hit }
+            val satisfied = if (signature.requireAllMatchers) hits.size == groups.size else hits.isNotEmpty()
+            if (!satisfied) return null
+            evidence += hits
         }
 
-        if (signature.anyContentDescription.isNotEmpty()) {
-            val hit = signature.anyContentDescription.firstOrNull { snapshot.hasDescriptionContaining(it) }
-            if (hit != null) {
-                evidence += "desc~$hit"
-                positiveMatched = true
-            } else if (signature.anyViewId.isEmpty() && signature.anyText.isEmpty()) {
-                return null
-            }
-        }
-
-        if (signature.anyText.isNotEmpty()) {
-            val hit = signature.anyText.firstOrNull { snapshot.hasTextContaining(it) }
-            if (hit != null) {
-                evidence += "text~$hit"
-                positiveMatched = true
-            } else if (signature.anyViewId.isEmpty() && signature.anyContentDescription.isEmpty()) {
-                return null
-            }
-        }
-
-        // A signature made only of context requirements would match every screen in that context.
-        if (!positiveMatched) return null
         if (signature.requireContext.isNotEmpty()) {
             evidence += signature.requireContext.map { "ctx:$it" }
         }

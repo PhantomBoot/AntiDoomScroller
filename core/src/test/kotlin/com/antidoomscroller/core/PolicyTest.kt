@@ -10,7 +10,7 @@ import com.antidoomscroller.core.model.RuleAction
 import com.antidoomscroller.core.model.ScheduleSettings
 import com.antidoomscroller.core.model.SupportedApps
 import com.antidoomscroller.core.policy.AllowReason
-import com.antidoomscroller.core.policy.BlockLoopTracker
+import com.antidoomscroller.core.policy.BackOffBudget
 import com.antidoomscroller.core.policy.GuardDecision
 import com.antidoomscroller.core.policy.PolicyResolver
 import com.antidoomscroller.core.schedule.ScheduleEvaluator
@@ -166,19 +166,38 @@ class PolicyTest {
     }
 
     @Test
-    fun `repeated blocks escalate to leaving the app`() {
-        val tracker = BlockLoopTracker(escapeCount = 3, windowMs = 10_000)
-        assertFalse(tracker.onBlock("ig/reels", 0))
-        assertFalse(tracker.onBlock("ig/reels", 1_000))
-        assertTrue(tracker.onBlock("ig/reels", 2_000))
+    fun `the back press budget runs out after the allowed attempts`() {
+        val budget = BackOffBudget(attempts = 3, windowMs = 10_000)
+        assertFalse(budget.onBackPress("yt/shorts", 0))
+        assertFalse(budget.onBackPress("yt/shorts", 1_000))
+        assertTrue(budget.onBackPress("yt/shorts", 2_000))
     }
 
     @Test
-    fun `block loop counter forgets old and unrelated blocks`() {
-        val tracker = BlockLoopTracker(escapeCount = 3, windowMs = 5_000)
-        tracker.onBlock("ig/reels", 0)
-        tracker.onBlock("ig/reels", 1_000)
-        assertFalse(tracker.onBlock("ig/reels", 20_000))
-        assertFalse(tracker.onBlock("yt/shorts", 20_100))
+    fun `the budget forgets old and unrelated attempts`() {
+        val budget = BackOffBudget(attempts = 3, windowMs = 5_000)
+        budget.onBackPress("yt/shorts", 0)
+        budget.onBackPress("yt/shorts", 1_000)
+        assertFalse(budget.onBackPress("yt/shorts", 20_000))
+        assertFalse(budget.onBackPress("ig/reels", 20_100))
+    }
+
+    @Test
+    fun `a shorts shelf in a feed is covered even when the app backs out of players`() {
+        val youtube = GuardSettings().profileFor(SupportedApps.YOUTUBE)!!
+        assertEquals(BlockStyle.EXIT, youtube.blockStyle)
+
+        // Backing out of the home feed because a shorts shelf is on it would take away the feed.
+        assertEquals(
+            BlockStyle.COVER,
+            PolicyResolver.styleFor(youtube, FeedSurface.SHORT_VIDEO_IN_HOME),
+        )
+        assertEquals(
+            BlockStyle.EXIT,
+            PolicyResolver.styleFor(youtube, FeedSurface.SHORT_VIDEO_FEED),
+        )
+
+        val decision = decide(GuardSettings(), FeedSurface.SHORT_VIDEO_IN_HOME, SupportedApps.YOUTUBE)
+        assertEquals(BlockStyle.COVER, (decision as GuardDecision.Block).style)
     }
 }

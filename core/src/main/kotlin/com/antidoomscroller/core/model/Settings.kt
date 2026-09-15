@@ -217,14 +217,28 @@ data class AdultFilterSettings(
 
 @Serializable
 data class EnforcementSettings(
-    /** How many back presses to try before falling back to the home screen. */
+    /**
+     * Back presses to try before giving up and simply keeping the video covered.
+     *
+     * Giving up never means closing the app. Backing out of a short-video tab should land on the
+     * tab the user came from; if it does not, covering the video is the right answer, because
+     * everything else in the app is theirs to use.
+     */
     val backAttempts: Int = 3,
-    val backAttemptDelayMs: Long = 350,
+
+    /**
+     * How long to let a back press take effect before trying another.
+     *
+     * Screens are re-examined several times a second, so a short delay here would fire a burst of
+     * back presses at one screen and walk the user out of the app.
+     */
+    val backAttemptDelayMs: Long = 1_200,
+
     /** How long the block card stays up before it can be dismissed. */
     val overlayMinimumMs: Long = 1_200,
-    /** Blocks in a row inside this window mean the app is fighting back - leave it entirely. */
-    val loopEscapeBlockCount: Int = 4,
-    val loopEscapeWindowMs: Long = 10_000,
+
+    /** The window over which [backAttempts] is counted. */
+    val backAttemptWindowMs: Long = 15_000,
 )
 
 /** The single persisted settings object. Everything the user can configure lives here. */

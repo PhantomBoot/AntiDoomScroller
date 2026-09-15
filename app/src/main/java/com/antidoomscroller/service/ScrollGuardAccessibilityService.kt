@@ -19,9 +19,10 @@ import com.antidoomscroller.core.messages.MessageBook
 import com.antidoomscroller.core.messages.RenderedMessage
 import com.antidoomscroller.core.model.AppProfile
 import com.antidoomscroller.core.model.BlockStyle
+import com.antidoomscroller.core.model.EnforcementSettings
 import com.antidoomscroller.core.model.GuardSettings
 import com.antidoomscroller.core.model.MessageKind
-import com.antidoomscroller.core.policy.BlockLoopTracker
+import com.antidoomscroller.core.policy.BackOffBudget
 import com.antidoomscroller.core.policy.GuardDecision
 import com.antidoomscroller.core.policy.PolicyResolver
 import com.antidoomscroller.core.scroll.ScrollDetector
@@ -62,7 +63,7 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
     @Volatile private var ruleset: Ruleset = Ruleset(DomainMatcher.EMPTY, 0, 0, 0)
     @Volatile private var filterUnlocked: Boolean = false
 
-    private var loopTracker = BlockLoopTracker(escapeCount = 4, windowMs = 10_000)
+    private var backOff = BackOffBudget(attempts = 3, windowMs = 15_000)
     private var lastEvaluationMs = 0L
     private var lastBackMs = 0L
 
@@ -74,9 +75,9 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
         serviceScope.launch {
             container.settingsRepository.settings.collectLatest { latest ->
                 settings = latest
-                loopTracker = BlockLoopTracker(
-                    escapeCount = latest.enforcement.loopEscapeBlockCount,
-                    windowMs = latest.enforcement.loopEscapeWindowMs,
+                backOff = BackOffBudget(
+                    attempts = latest.enforcement.backAttempts,
+                    windowMs = latest.enforcement.backAttemptWindowMs,
                 )
                 refreshWatchedPackages(latest)
             }
@@ -144,7 +145,11 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
         val classification = classifier.classify(snapshot, trail.activeTags(now))
         when (val decision = resolver.decide(settings, packageName, classification, LocalDateTime.now())) {
             is GuardDecision.Block -> enforceBlock(decision, profile, snapshot, now)
-            is GuardDecision.Allow -> overlay.dismiss()
+            is GuardDecision.Allow -> {
+                overlay.dismiss()
+                // Left the player under its own steam: the next visit starts with a full budget.
+                backOff.reset()
+            }
         }
     }
 
@@ -166,7 +171,7 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
 
         when (decision.style) {
             BlockStyle.COVER -> cover(rendered, snapshot)
-            BlockStyle.EXIT -> exit(decision, rendered, nowMs)
+            BlockStyle.EXIT -> exit(decision, rendered, snapshot, nowMs)
         }
     }
 
@@ -191,27 +196,34 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
         overlay.showPatch(region, rendered.title, rendered.body)
     }
 
-    /** Step back out of the player; if the app keeps re-opening it, leave the app entirely. */
-    private fun exit(decision: GuardDecision.Block, rendered: RenderedMessage, nowMs: Long) {
-        overlay.showPanel(
-            title = rendered.title,
-            body = rendered.body,
-            actionLabel = "Back to home",
-            minimumVisibleMs = settings.enforcement.overlayMinimumMs,
-        ) {
-            performGlobalAction(GLOBAL_ACTION_BACK)
-        }
+    /**
+     * Step back out of a full-screen player, and cover it meanwhile.
+     *
+     * The video is hidden first, so the block holds even while the app is navigating. Back is
+     * then pressed at most [EnforcementSettings.backAttempts] times, spaced far enough apart for
+     * the app to actually act on each one - screens are re-examined several times a second, and
+     * an unspaced burst would sail past the player and out of the app.
+     *
+     * When the budget runs out the guard stops pressing and simply keeps the video covered. It
+     * never closes the app: the rest of YouTube is long-form video the user asked to keep.
+     */
+    private fun exit(
+        decision: GuardDecision.Block,
+        rendered: RenderedMessage,
+        snapshot: ScreenSnapshot,
+        nowMs: Long,
+    ) {
+        cover(rendered, snapshot)
 
-        if (loopTracker.onBlock("${decision.packageName}/${decision.surface.id}", nowMs)) {
-            loopTracker.reset()
-            overlay.dismiss()
-            performGlobalAction(GLOBAL_ACTION_HOME)
+        if (nowMs - lastBackMs < settings.enforcement.backAttemptDelayMs) return
+        lastBackMs = nowMs
+
+        val key = "${decision.packageName}/${decision.surface.id}"
+        if (backOff.onBackPress(key, nowMs)) {
+            // The app keeps putting the player back. Covering it is better than fighting on.
             return
         }
-        if (nowMs - lastBackMs >= settings.enforcement.backAttemptDelayMs) {
-            lastBackMs = nowMs
-            performGlobalAction(GLOBAL_ACTION_BACK)
-        }
+        performGlobalAction(GLOBAL_ACTION_BACK)
     }
 
     private fun handleScroll(packageName: String) {
@@ -238,7 +250,7 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
     private fun leaveGuardedApp() {
         overlay.dismiss()
         scrollDetector.onLeaveApp()
-        loopTracker.reset()
+        backOff.reset()
     }
 
     // -- adult filter, browser layer -----------------------------------------

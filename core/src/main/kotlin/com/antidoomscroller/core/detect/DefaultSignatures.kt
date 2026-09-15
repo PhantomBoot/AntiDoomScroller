@@ -134,7 +134,14 @@ object DefaultSignatures {
                 anyViewId = listOf("reel_recycler", "reel_player_page_container", "reel_watch_fragment_root_view"),
                 requireContext = listOf(ContextTag.SEARCH),
             ),
-            // The Shorts player: vertically paged reel_recycler is the stable marker across versions.
+            // The Shorts player: vertically paged reel_recycler is the stable marker across
+            // versions.
+            //
+            // Deliberately no content-description matching anywhere in YouTube. The bottom
+            // navigation carries a tab described as "Shorts" on *every* screen in the app,
+            // including the long-form watch page, so matching that description would mean the
+            // whole app reads as a short-video feed. An id that is missing costs a feed that is
+            // not blocked; an id that matches everything costs the user their app.
             SurfaceSignature(
                 surface = FeedSurface.SHORT_VIDEO_FEED.id,
                 weight = 130,
@@ -146,14 +153,12 @@ object DefaultSignatures {
                     "shorts_video_container",
                     "shorts_player",
                 ),
-                anyContentDescription = listOf("shorts", "short video"),
             ),
-            // The Shorts shelf on the home tab.
+            // The Shorts shelf on the home tab: the shelf container, never the player.
             SurfaceSignature(
                 surface = FeedSurface.SHORT_VIDEO_IN_HOME.id,
                 weight = 120,
-                anyContentDescription = listOf("shorts shelf", "shorts"),
-                anyViewId = listOf("rich_shelf", "shelf_header", "shorts_shelf"),
+                anyViewId = listOf("shorts_shelf", "reel_shelf"),
                 noneViewId = listOf("reel_recycler", "reel_player_page_container"),
             ),
             SurfaceSignature(
