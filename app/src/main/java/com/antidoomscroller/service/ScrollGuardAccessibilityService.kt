@@ -20,7 +20,7 @@ import com.antidoomscroller.core.detect.SurfaceClassifier
 import com.antidoomscroller.core.lock.LockPhase
 import com.antidoomscroller.core.lock.ScrollPassController
 import com.antidoomscroller.core.lock.ScrollPassState
-import com.antidoomscroller.core.messages.MessageBook
+import com.antidoomscroller.core.messages.MessageRotator
 import com.antidoomscroller.core.messages.RenderedMessage
 import com.antidoomscroller.core.model.AppProfile
 import com.antidoomscroller.core.model.BlockStyle
@@ -63,7 +63,7 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
     private val resolver = PolicyResolver()
     private val scrollDetector = ScrollDetector()
     private val feedTime = ScrollTimeTracker()
-    private val messageBook = MessageBook()
+    private val messages = MessageRotator()
     private val session = ShortVideoSession()
     private val handler = Handler(Looper.getMainLooper())
 
@@ -213,9 +213,11 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
         snapshot: ScreenSnapshot,
         nowMs: Long,
     ) {
-        val rendered = messageBook.render(
+        val rendered = messages.render(
             settings = settings.messages,
             kind = MessageKind.FEED_BLOCK,
+            key = "${decision.packageName}/${decision.surface.id}",
+            nowMs = nowMs,
             appLabel = profile.displayName,
             surface = decision.surface,
         )
@@ -297,9 +299,11 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
         val verdict = scrollDetector.onScroll(packageName, profile.antiScroll, SystemClock.uptimeMillis())
         if (verdict !is ScrollVerdict.Interrupt) return
 
-        val rendered = messageBook.render(
+        val rendered = messages.render(
             settings = settings.messages,
             kind = MessageKind.ANTI_SCROLL,
+            key = "$packageName/scroll-reminder",
+            nowMs = SystemClock.uptimeMillis(),
             appLabel = profile.displayName,
         )
         overlay.flash(
@@ -315,6 +319,7 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
         overlay.dismiss()
         scrollDetector.onLeaveApp()
         backOff.reset()
+        messages.clear()
         session.reset()
         lastSurface = FeedSurface.UNKNOWN
         feedTime.onAwayFromFeed(SystemClock.uptimeMillis(), FeedTimeSettings())
@@ -341,9 +346,11 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
         val area = MediaRegionResolver.contentArea(snapshot, signature, screenBounds())
         if (area.isEmpty) return false
 
-        val rendered = messageBook.render(
+        val rendered = messages.render(
             settings = settings.messages,
             kind = MessageKind.ANTI_SCROLL,
+            key = "${snapshot.packageName}/feed-time",
+            nowMs = SystemClock.uptimeMillis(),
             appLabel = profile.displayName,
         )
         overlay.showPatch(area, rendered.title, rendered.body)
@@ -398,7 +405,12 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
             return
         }
 
-        val rendered = messageBook.render(settings.messages, MessageKind.ADULT_BLOCK, appLabel = null)
+        val rendered = messages.render(
+            settings = settings.messages,
+            kind = MessageKind.ADULT_BLOCK,
+            key = "adult/$host",
+            nowMs = SystemClock.uptimeMillis(),
+        )
         overlay.showPanel(
             title = rendered.title,
             body = rendered.body,

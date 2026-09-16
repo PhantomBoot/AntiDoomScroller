@@ -113,6 +113,41 @@ fun MessagesScreen(onBack: () -> Unit) {
                         }
                     },
                 )
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "Each one stays up for ${messages.holdSeconds}s",
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Text(
+                            "How long a message is held before the next is shown.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Row {
+                        TextButton(onClick = {
+                            scope.launch {
+                                container.settingsRepository.update {
+                                    val next = (it.messages.holdSeconds - 1).coerceIn(1, 120)
+                                    it.copy(messages = it.messages.copy(holdSeconds = next))
+                                }
+                            }
+                        }) { Text("-1") }
+                        TextButton(onClick = {
+                            scope.launch {
+                                container.settingsRepository.update {
+                                    val next = (it.messages.holdSeconds + 1).coerceIn(1, 120)
+                                    it.copy(messages = it.messages.copy(holdSeconds = next))
+                                }
+                            }
+                        }) { Text("+1") }
+                    }
+                }
                 SwitchRow(
                     title = "Also send a notification",
                     description = "Off by default: the on-screen card is usually enough.",

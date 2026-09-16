@@ -137,7 +137,16 @@ data class MessageSettings(
     val showAppName: Boolean = true,
     val showBlockedSurface: Boolean = true,
     val notifyOnBlock: Boolean = false,
+    /**
+     * How long a message stays put before another is shown.
+     *
+     * A blocked screen is re-examined several times a second, and without this the card picked a
+     * fresh line every time - a flicker rather than something you could read.
+     */
+    val holdSeconds: Int = 4,
 ) {
+    val holdMs: Long get() = holdSeconds.coerceIn(1, 120) * 1_000L
+
     fun messagesFor(kind: MessageKind): List<String> = when (kind) {
         MessageKind.FEED_BLOCK -> feedBlockMessages
         MessageKind.ANTI_SCROLL -> antiScrollMessages
