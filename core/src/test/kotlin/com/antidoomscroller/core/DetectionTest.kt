@@ -239,6 +239,53 @@ class DetectionTest {
     }
 
     @Test
+    fun `a reel someone sent is recognised without remembering the thread`() {
+        // Ids from a detection report of a reel opened from a message. Note there is no DM
+        // context here at all: the thread is gone, the player has replaced it. The reply
+        // composer on the player is what says where this came from.
+        val dmReel = instagramScreen(
+            ids = setOf(
+                "root_clips_layout",
+                "clips_viewer_container",
+                "clips_viewer_view_pager",
+                "clips_video_container",
+                "clips_media_component",
+                "reel_viewer_message_composer",
+                "reply_bar_container",
+                "reply_bar_edittext",
+                "sender_username_or_fullname",
+                "sender_timestamp",
+                "class:textureview",
+                "video:fullscreen",
+                "video:fullwidth",
+            ),
+            descriptions = setOf("reel by trent_ellis21. double tap to play or pause.", "david law", "back"),
+        )
+
+        assertEquals(
+            FeedSurface.SHORT_VIDEO_IN_DM,
+            classifier.classify(dmReel, emptySet()).surface,
+        )
+    }
+
+    @Test
+    fun `the reels tab has no reply composer and stays the reels tab`() {
+        val reelsTab = instagramScreen(
+            ids = setOf(
+                "root_clips_layout",
+                "clips_viewer_container",
+                "clips_viewer_view_pager",
+                "clips_video_container",
+                "class:textureview",
+                "video:fullscreen",
+                "video:fullwidth",
+            ),
+            descriptions = setOf("reel by someone. double tap to play or pause."),
+        )
+        assertEquals(FeedSurface.SHORT_VIDEO_FEED, classifier.classify(reelsTab, emptySet()).surface)
+    }
+
+    @Test
     fun `the reels player is caught by the pager it actually uses`() {
         val reelsTab = instagramScreen(
             ids = setOf(

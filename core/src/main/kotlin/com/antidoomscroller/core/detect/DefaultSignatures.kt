@@ -63,6 +63,9 @@ object DefaultSignatures {
         // screens themselves.
         contextViewIds = mapOf(
             ContextTag.DM to listOf(
+                "reel_viewer_message_composer",
+                "reply_bar_container",
+                "sender_username_or_fullname",
                 "direct_thread",
                 "direct_inbox_action_bar",
                 "inbox_refreshable_thread_list",
@@ -101,7 +104,27 @@ object DefaultSignatures {
                 allViewId = listOf("clips_viewer"),
                 anyViewId = listOf("clips_tab", "tab_bar", "tab_bar_shadow"),
             ),
-            // A reel opened out of a DM thread: same player, no tab bar, different origin.
+            // A reel someone sent you, recognised on the screen itself.
+            //
+            // The player carries a reply composer and the sender's name when the reel arrived in
+            // a message; the Reels tab has neither. That is evidence in front of us, so it beats
+            // every rule that depends on remembering which screen came before - which is what
+            // used to decide this, and which failed the moment the thread's own ids were not the
+            // ones guessed at.
+            SurfaceSignature(
+                surface = FeedSurface.SHORT_VIDEO_IN_DM.id,
+                weight = 170,
+                allViewId = listOf("clips_viewer"),
+                anyViewId = listOf(
+                    "reel_viewer_message_composer",
+                    "reply_bar_container",
+                    "reply_bar_edittext",
+                    "sender_username_or_fullname",
+                    "sender_timestamp",
+                ),
+            ),
+            // The same thing by where the user came from, for builds that name the composer
+            // something else.
             SurfaceSignature(
                 surface = FeedSurface.SHORT_VIDEO_IN_DM.id,
                 weight = 140,
@@ -141,8 +164,13 @@ object DefaultSignatures {
                     "reels_viewer",
                     "clips_tab_container",
                 ),
-                // A profile is a profile even if every post on it is a reel.
-                noneViewId = listOf("profile_header"),
+                noneViewId = listOf(
+                    // A profile is a profile even if every post on it is a reel.
+                    "profile_header",
+                    // A reel you can reply to came from a message, not from the tab.
+                    "reply_bar_container",
+                    "reel_viewer_message_composer",
+                ),
                 forbidContext = listOf(ContextTag.DM),
             ),
             // A reel playing inside the main timeline.
