@@ -3,9 +3,13 @@ package com.antidoomscroller.service
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Intent
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.util.DisplayMetrics
+import android.view.WindowInsets
+import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import com.antidoomscroller.AppContainer
 import com.antidoomscroller.core.blocklist.DomainMatcher
@@ -441,9 +445,49 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
 
     // -- helpers --------------------------------------------------------------
 
+    /**
+     * The area a cover is allowed to occupy: the display, less the system bars.
+     *
+     * The phone's own back, home and recents controls are never the app's to take away - leaving
+     * a feed is the one thing that should always stay easy, and a cover that swallowed the
+     * navigation bar made it the one thing that was not. The status bar is left alone for the
+     * same reason: the clock and the battery are not part of the feed.
+     */
     private fun screenBounds(): ScreenRect {
-        val metrics = resources.displayMetrics
-        return ScreenRect(0, 0, metrics.widthPixels, metrics.heightPixels)
+        val windowManager = getSystemService(WindowManager::class.java)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && windowManager != null) {
+            val metrics = windowManager.currentWindowMetrics
+            val bounds = metrics.bounds
+            // Ignoring visibility on purpose: a bar that is hidden right now can come back while
+            // the cover is still up, and the cover must not be sitting on it when it does.
+            val insets = metrics.windowInsets.getInsetsIgnoringVisibility(
+                WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout(),
+            )
+            return ScreenRect(
+                left = bounds.left + insets.left,
+                top = bounds.top + insets.top,
+                right = bounds.right - insets.right,
+                bottom = bounds.bottom - insets.bottom,
+            )
+        }
+
+        @Suppress("DEPRECATION")
+        val real = DisplayMetrics().also { windowManager?.defaultDisplay?.getRealMetrics(it) }
+        val width = if (real.widthPixels > 0) real.widthPixels else resources.displayMetrics.widthPixels
+        val height = if (real.heightPixels > 0) real.heightPixels else resources.displayMetrics.heightPixels
+        return ScreenRect(
+            left = 0,
+            top = systemBarHeight("status_bar_height"),
+            right = width,
+            bottom = height - systemBarHeight("navigation_bar_height"),
+        )
+    }
+
+    /** Reads a system bar height by name, the only way to get one before API 30. */
+    private fun systemBarHeight(name: String): Int {
+        val id = resources.getIdentifier(name, "dimen", "android")
+        return if (id > 0) resources.getDimensionPixelSize(id) else 0
     }
 
     /**

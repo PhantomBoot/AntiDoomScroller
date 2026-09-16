@@ -166,6 +166,46 @@ class MediaRegionTest {
     }
 
     @Test
+    fun `a cover never reaches outside the area it was given`() {
+        // The phone's status bar and navigation bar are taken off the screen before anything is
+        // measured, so a full-bleed player must be clipped to what is left rather than drawn over
+        // the back and home controls.
+        val insideSystemBars = ScreenRect(0, 96, 1080, 2256)
+        val fullBleed = ScreenSnapshot(
+            SupportedApps.INSTAGRAM,
+            bounds = mapOf(
+                // The app draws under both bars; its own bounds run the whole display.
+                "clips_video_container" to ScreenRect(0, 0, 1080, 2400),
+                "class:textureview" to ScreenRect(0, 0, 1080, 2400),
+            ),
+        )
+
+        val region = requireNotNull(MediaRegionResolver.resolve(fullBleed, instagram, insideSystemBars))
+        assertTrue("must not reach above the status bar", region.top >= insideSystemBars.top)
+        assertTrue("must not reach over the navigation bar", region.bottom <= insideSystemBars.bottom)
+        assertTrue(region.left >= insideSystemBars.left && region.right <= insideSystemBars.right)
+
+        val area = MediaRegionResolver.contentArea(fullBleed, instagram, insideSystemBars)
+        assertTrue(area.top >= insideSystemBars.top && area.bottom <= insideSystemBars.bottom)
+    }
+
+    @Test
+    fun `the feed-time cover leaves both the app's bars and the phone's alone`() {
+        val insideSystemBars = ScreenRect(0, 96, 1080, 2256)
+        val timeline = ScreenSnapshot(
+            SupportedApps.INSTAGRAM,
+            bounds = mapOf(
+                "main_feed_action_bar" to ScreenRect(0, 96, 1080, 300),
+                "feed_recycler_view" to ScreenRect(0, 300, 1080, 2150),
+                "tab_bar" to ScreenRect(0, 2150, 1080, 2256),
+            ),
+        )
+
+        val area = MediaRegionResolver.contentArea(timeline, instagram, insideSystemBars)
+        assertEquals(ScreenRect(0, 300, 1080, 2150), area)
+    }
+
+    @Test
     fun `thumbnails and buttons are never mistaken for the video`() {
         val region = MediaRegionResolver.resolve(
             snapshot(mapOf("clips_video_container" to ScreenRect(40, 40, 200, 200))),
