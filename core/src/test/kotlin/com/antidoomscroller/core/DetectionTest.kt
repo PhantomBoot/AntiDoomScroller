@@ -107,7 +107,14 @@ class DetectionTest {
         // feed. No clips_* container is present - the unit ids this used to require were guesses
         // that do not exist - so the reel label plus a playing video surface is the evidence.
         val feedReel = instagramScreen(
-            ids = setOf("feed_recycler_view", "tab_bar", "row_feed_button_like", "class:textureview"),
+            ids = setOf(
+                "feed_recycler_view",
+                "tab_bar",
+                "row_feed_button_like",
+                "class:textureview",
+                // A reel in the timeline runs the full width; a grid tile does not.
+                "video:fullwidth",
+            ),
             descriptions = setOf("reel by annabutterz", "like", "comment", "share"),
         )
         assertEquals(FeedSurface.SHORT_VIDEO_IN_HOME, classifier.classify(feedReel, emptySet()).surface)
@@ -179,6 +186,56 @@ class DetectionTest {
         )
         val result = classifier.classify(homeFeed, emptySet())
         assertFalse("the home feed is not the reels feed", result.surface.isShortVideo)
+    }
+
+    @Test
+    fun `the explore page is recognised by the selected tab`() {
+        val explore = instagramScreen(
+            ids = setOf(
+                "selected:search_tab",
+                "search_tab",
+                "feed_tab",
+                "clips_tab",
+                "tab_bar",
+                "video:inline",
+                "video:tile",
+                "class:textureview",
+            ),
+            descriptions = setOf("search and explore", "reel by someone", "for you"),
+        )
+        assertEquals(FeedSurface.EXPLORE, classifier.classify(explore, emptySet()).surface)
+    }
+
+    @Test
+    fun `an autoplaying tile on explore is not a reel in the timeline`() {
+        // What the screenshot showed: one grid tile covered, labelled as the home feed.
+        val exploreTile = instagramScreen(
+            ids = setOf(
+                "selected:search_tab",
+                "tab_bar",
+                "video:inline",
+                "video:tile",
+                "class:textureview",
+            ),
+            descriptions = setOf("reel by someone", "search and explore"),
+        )
+        assertEquals(FeedSurface.EXPLORE, classifier.classify(exploreTile, emptySet()).surface)
+    }
+
+    @Test
+    fun `a full-width reel on the home tab is still the timeline`() {
+        val timeline = instagramScreen(
+            ids = setOf(
+                "selected:feed_tab",
+                "main_feed_action_bar",
+                "tab_bar",
+                "video:inline",
+                "video:fullwidth",
+                "class:textureview",
+            ),
+            descriptions = setOf("reel by someone", "instagram home feed"),
+        )
+        assertEquals(FeedSurface.SHORT_VIDEO_IN_HOME, classifier.classify(timeline, emptySet()).surface)
     }
 
     @Test

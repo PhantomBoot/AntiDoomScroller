@@ -226,7 +226,7 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
         }
 
         when (decision.style) {
-            BlockStyle.COVER -> cover(rendered, snapshot)
+            BlockStyle.COVER -> cover(rendered, snapshot, decision.surface)
             BlockStyle.EXIT -> exit(decision, rendered, snapshot, nowMs)
         }
     }
@@ -239,11 +239,24 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
      * When nothing on screen looks like the video, the content area between the app's own bars is
      * used rather than blacking out the display.
      */
-    private fun cover(rendered: RenderedMessage, snapshot: ScreenSnapshot) {
+    private fun cover(
+        rendered: RenderedMessage,
+        snapshot: ScreenSnapshot,
+        surface: FeedSurface = FeedSurface.UNKNOWN,
+    ) {
         val screen = screenBounds()
         val signature = classifier.signatureFor(snapshot.packageName)
-        val region = MediaRegionResolver.resolve(snapshot, signature, screen)
-            ?: MediaRegionResolver.contentArea(snapshot, signature, screen)
+
+        // A whole page rather than one video: Explore is a wall of short video, so covering the
+        // tile that happens to be playing would leave the rest of it exactly as tempting. The
+        // content area stops short of the app's own bars, so the search field and the tabs are
+        // still there to leave by.
+        val region = if (surface == FeedSurface.EXPLORE) {
+            MediaRegionResolver.contentArea(snapshot, signature, screen)
+        } else {
+            MediaRegionResolver.resolve(snapshot, signature, screen)
+                ?: MediaRegionResolver.contentArea(snapshot, signature, screen)
+        }
 
         if (region.isEmpty) {
             overlay.dismiss()

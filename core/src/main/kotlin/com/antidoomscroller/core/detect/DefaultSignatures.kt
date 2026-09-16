@@ -48,7 +48,15 @@ object DefaultSignatures {
             "clips_viewer_container",
         ),
         bottomChromeViewIds = listOf("tab_bar"),
-        topChromeViewIds = listOf("action_bar_container", "action_bar"),
+        // "action_bar" covers action_bar_root and friends; the search ids keep the cover below
+        // the search field on Explore rather than over it.
+        topChromeViewIds = listOf(
+            "action_bar_container",
+            "action_bar",
+            "search_edit_text",
+            "search_bar",
+            "echo_search",
+        ),
         // Deliberately none of clips_tab, feed_tab, direct_tab, search_tab or profile_tab: those
         // are the buttons in the bottom navigation bar, on screen everywhere in the app. Using
         // them as context markers meant every context was always active. These are the ids of the
@@ -62,6 +70,8 @@ object DefaultSignatures {
                 "direct_fragment_container",
             ),
             ContextTag.EXPLORE to listOf(
+                "selected:search_tab",
+                "selected:explore_tab",
                 "explore_grid",
                 "explore_recycler",
                 "discovery_recycler",
@@ -69,12 +79,13 @@ object DefaultSignatures {
                 "grid_recycler",
             ),
             ContextTag.HOME to listOf(
+                "selected:feed_tab",
                 "main_feed_action_bar",
                 "feed_recycler_view",
                 "main_feed_recycler_view",
                 "refreshable_container",
             ),
-            ContextTag.PROFILE to listOf("profile_header"),
+            ContextTag.PROFILE to listOf("selected:profile_tab", "profile_header"),
             ContextTag.SEARCH to listOf("search_edit_text", "action_bar_search_edit_text"),
         ),
         surfaces = listOf(
@@ -143,12 +154,34 @@ object DefaultSignatures {
             // playing in the feed, which is precisely the thing this surface is about.
             SurfaceSignature(
                 surface = FeedSurface.SHORT_VIDEO_IN_HOME.id,
-                weight = 110,
+                weight = 112,
+                // A reels unit named outright. No width requirement: the unit is a unit whether
+                // or not anything happens to be playing in it at this instant.
                 anyViewId = listOf("clips_netego", "clips_unit", "netego_carousel"),
+                noneViewId = listOf(
+                    "profile_header",
+                    "profile_grid",
+                    "selected:search_tab",
+                    "selected:profile_tab",
+                    "clips_viewer",
+                    "clips_video_container",
+                ),
+                forbidContext = listOf(ContextTag.DM, ContextTag.EXPLORE, ContextTag.PROFILE),
+            ),
+            SurfaceSignature(
+                surface = FeedSurface.SHORT_VIDEO_IN_HOME.id,
+                weight = 110,
+                // Recognised by its label instead, which every reel carries - so it has to be
+                // playing and running the full width of the screen to count. A grid of thumbnails
+                // on Explore or a profile carries the same "Reel by <name>" text, and one of them
+                // autoplaying as a third-width tile used to read as a reel in the timeline.
+                allViewId = listOf("video:fullwidth"),
                 anyContentDescription = listOf("reel by", "reel video", "audio by"),
                 noneViewId = listOf(
                     "profile_header",
                     "profile_grid",
+                    "selected:search_tab",
+                    "selected:profile_tab",
                     "explore_grid",
                     "explore_recycler",
                     "discovery_recycler",
@@ -175,7 +208,18 @@ object DefaultSignatures {
             SurfaceSignature(
                 surface = FeedSurface.EXPLORE.id,
                 weight = 90,
-                anyViewId = listOf("explore_grid", "explore_recycler", "discovery_recycler_view"),
+                // The selected bottom tab is the reliable answer to "which page is this": no
+                // grid or container id has survived a release intact, and the tab is always on
+                // screen. The container ids stay as a fallback for builds that do not mark the
+                // tab selected.
+                anyViewId = listOf(
+                    "selected:search_tab",
+                    "selected:explore_tab",
+                    "explore_grid",
+                    "explore_recycler",
+                    "discovery_recycler_view",
+                ),
+                noneViewId = listOf("clips_viewer", "direct_thread"),
             ),
             SurfaceSignature(
                 surface = FeedSurface.HOME_FEED.id,

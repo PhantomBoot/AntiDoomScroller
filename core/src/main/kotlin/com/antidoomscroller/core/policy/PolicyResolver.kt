@@ -65,7 +65,7 @@ class PolicyResolver {
             )
         }
 
-        return when (profile.actionFor(classification.surface)) {
+        return when (profile.actionFor(governingSurface(classification.surface))) {
             RuleAction.ALLOW -> GuardDecision.Allow(AllowReason.SURFACE_ALLOWED, classification.surface)
             RuleAction.BLOCK -> GuardDecision.Block(
                 packageName = packageName,
@@ -85,10 +85,22 @@ class PolicyResolver {
          * instead: backing out of it would mean backing out of the home feed, which is not what
          * was asked for.
          */
+        /**
+         * Which switch governs a surface.
+         *
+         * The Explore page answers to the same switch as a reel opened from it. Explore is a wall
+         * of short video whichever way it is entered, so one switch covering both is what people
+         * actually mean by turning it off.
+         */
+        fun governingSurface(surface: FeedSurface): FeedSurface =
+            if (surface == FeedSurface.EXPLORE) FeedSurface.SHORT_VIDEO_IN_EXPLORE else surface
+
         fun styleFor(profile: AppProfile, surface: FeedSurface): BlockStyle = when (surface) {
             // Covering a story would leave it playing and advancing behind the panel, so the
             // only way to actually stop one is to step back out of the viewer.
             FeedSurface.STORIES -> BlockStyle.EXIT
+            // The page is the problem, not one tile on it, so it is covered whole.
+            FeedSurface.EXPLORE -> BlockStyle.COVER
             FeedSurface.SHORT_VIDEO_IN_HOME -> BlockStyle.COVER
             else -> profile.blockStyle
         }

@@ -53,16 +53,16 @@ class PolicyTest {
     }
 
     @Test
-    fun `the feed, explore and search are untouchable even if a rule says otherwise`() {
+    fun `the home timeline is untouchable even if a rule says otherwise`() {
         val settings = GuardSettings().let { base ->
             var profile = base.profileFor(SupportedApps.INSTAGRAM)!!
-            listOf(FeedSurface.EXPLORE, FeedSurface.HOME_FEED).forEach {
+            listOf(FeedSurface.HOME_FEED).forEach {
                 profile = profile.withAction(it, RuleAction.BLOCK)
             }
             base.withProfile(profile)
         }
 
-        listOf(FeedSurface.EXPLORE, FeedSurface.HOME_FEED).forEach { surface ->
+        listOf(FeedSurface.HOME_FEED).forEach { surface ->
             val decision = decide(settings, surface)
             assertTrue("$surface must never be blocked", decision is GuardDecision.Allow)
             assertEquals(AllowReason.NOT_BLOCKABLE, (decision as GuardDecision.Allow).reason)
@@ -89,6 +89,23 @@ class PolicyTest {
     }
 
     @Test
+    fun `the explore page answers to the explore switch and is covered whole`() {
+        val decision = decide(GuardSettings(), FeedSurface.EXPLORE)
+        assertTrue("Explore is blocked by default on Instagram", decision is GuardDecision.Block)
+        assertEquals(BlockStyle.COVER, (decision as GuardDecision.Block).style)
+
+        val allowed = GuardSettings().let { base ->
+            base.withProfile(
+                base.profileFor(SupportedApps.INSTAGRAM)!!
+                    .withAction(FeedSurface.SHORT_VIDEO_IN_EXPLORE, RuleAction.ALLOW),
+            )
+        }
+        // One switch governs the page and a reel opened from it.
+        assertTrue(decide(allowed, FeedSurface.EXPLORE) is GuardDecision.Allow)
+        assertTrue(decide(allowed, FeedSurface.SHORT_VIDEO_IN_EXPLORE) is GuardDecision.Allow)
+    }
+
+    @Test
     fun `only short video and stories can ever be blocked`() {
         assertEquals(
             listOf(
@@ -96,11 +113,12 @@ class PolicyTest {
                 FeedSurface.SHORT_VIDEO_IN_DM,
                 FeedSurface.SHORT_VIDEO_IN_HOME,
                 FeedSurface.SHORT_VIDEO_IN_EXPLORE,
+                FeedSurface.EXPLORE,
                 FeedSurface.STORIES,
             ),
             FeedSurface.entries.filter { it.isBlockable },
         )
-        listOf(FeedSurface.HOME_FEED, FeedSurface.EXPLORE, FeedSurface.UNKNOWN).forEach {
+        listOf(FeedSurface.HOME_FEED, FeedSurface.UNKNOWN).forEach {
             assertFalse("$it must not be blockable", it.isBlockable)
         }
         assertTrue(DefaultProfiles.all().all { profile ->

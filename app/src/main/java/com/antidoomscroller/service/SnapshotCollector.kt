@@ -28,6 +28,9 @@ object SnapshotCollector {
     /** Share of the screen a video has to fill before it counts as a full-screen player. */
     private const val FULLSCREEN_PERCENT = 55
 
+    /** Share of the width a video has to span before it counts as a post rather than a tile. */
+    private const val FULL_WIDTH_PERCENT = 80
+
     fun collect(
         root: AccessibilityNodeInfo,
         packageName: String,
@@ -70,6 +73,15 @@ object SnapshotCollector {
             ScreenSnapshot.normaliseViewId(node.viewIdResourceName)?.let { id ->
                 viewIds += id
                 record(bounds, id, box, screen)
+
+                // Which bottom-tab is selected says which part of the app the user is in, with no
+                // guessing at container ids at all. The tab ids themselves - feed_tab, search_tab,
+                // clips_tab - have been stable across every release seen so far, and unlike the
+                // screens behind them they are always on screen to be read.
+                if (node.isSelected) {
+                    viewIds += "selected:$id"
+                    record(bounds, "selected:$id", box, screen)
+                }
             }
 
             node.className?.toString()?.lowercase()?.let { className ->
@@ -88,14 +100,25 @@ object SnapshotCollector {
                     // in a row is a post. Signatures can ask for either without naming a single
                     // container id, which is what stops them breaking every time Instagram
                     // renames its views.
-                    val visible = box.intersect(screen).area
-                    val marker = if (visible * 100 >= screen.area * FULLSCREEN_PERCENT) {
+                    val onScreenBox = box.intersect(screen)
+                    val marker = if (onScreenBox.area * 100 >= screen.area * FULLSCREEN_PERCENT) {
                         "video:fullscreen"
                     } else {
                         "video:inline"
                     }
                     viewIds += marker
                     record(bounds, marker, box, screen)
+
+                    // Width separates a post from a tile: a reel in a timeline runs the whole
+                    // width of the screen, a thumbnail in a grid is a third of it. Without this
+                    // an autoplaying tile on Explore read as a reel in the home feed.
+                    val widthMarker = if (onScreenBox.width * 100 >= screen.width * FULL_WIDTH_PERCENT) {
+                        "video:fullwidth"
+                    } else {
+                        "video:tile"
+                    }
+                    viewIds += widthMarker
+                    record(bounds, widthMarker, box, screen)
                 }
             }
             if (descriptions.size < MAX_TEXT_ENTRIES) {

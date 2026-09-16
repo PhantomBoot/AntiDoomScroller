@@ -103,7 +103,13 @@ class FeedTimeTest {
         val classifier = SurfaceClassifier(DefaultSignatures.pack())
         val feed = ScreenSnapshot(
             SupportedApps.INSTAGRAM,
-            viewIds = setOf("feed_recycler_view", "class:textureview", "video:inline", "tab_bar"),
+            viewIds = setOf(
+                "feed_recycler_view",
+                "class:textureview",
+                "video:inline",
+                "video:fullwidth",
+                "tab_bar",
+            ),
             contentDescriptions = setOf("reel by alice"),
         )
         assertEquals(FeedSurface.SHORT_VIDEO_IN_HOME, classifier.classify(feed, emptySet()).surface)

@@ -24,8 +24,9 @@ enum class FeedSurface(val id: String, val label: String, val description: Strin
     ),
     SHORT_VIDEO_IN_EXPLORE(
         id = "short_video_in_explore",
-        label = "Reels opened from Explore",
-        description = "A short video opened from the explore grid or search results.",
+        label = "Explore",
+        description = "Covers the Explore page and any reel opened from it. The search bar and " +
+            "the tabs stay usable.",
     ),
     HOME_FEED(
         id = "home_feed",
@@ -52,13 +53,13 @@ enum class FeedSurface(val id: String, val label: String, val description: Strin
     /**
      * Whether the app is allowed to take this screen away at all.
      *
-     * The short-video feeds, plus stories, which are the one non-video surface with a switch of
-     * its own. Everything else - messages, posts, search, profiles, long-form video - is
+     * The short-video feeds, plus stories and the Explore page, which have switches of their
+     * own. Everything else - messages, posts, the home timeline, profiles, long-form video - is
      * recognised only so the guard knows where the user is, and cannot be blocked whatever the
      * settings say.
      */
     val isBlockable: Boolean
-        get() = isShortVideo || this == STORIES
+        get() = isShortVideo || this == STORIES || this == EXPLORE
 
     /** Whether this surface is one of the short-video feeds. */
     val isShortVideo: Boolean
